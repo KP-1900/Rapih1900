@@ -87,8 +87,8 @@
 
   function formTugas(kat) {
     var baru = !kat, namaBaru = '';
-    var rows = baru ? [{ p: '', s: '' }] : R.M.tugas.filter(function (t) { return t.Kategori === kat; })
-      .sort(function (a, b) { return a.No - b.No; }).map(function (t) { return { p: t.Pekerjaan, s: t.Standar }; });
+    var rows = baru ? [{ p: '', s: '', id: '' }] : R.M.tugas.filter(function (t) { return t.Kategori === kat; })
+      .sort(function (a, b) { return a.No - b.No; }).map(function (t) { return { p: t.Pekerjaan, s: t.Standar, id: t.ID || '' }; });
     var box = $('formTugas');
 
     function gambar(fokusAkhir) {
@@ -114,12 +114,12 @@
       box.querySelectorAll('[data-dn]').forEach(function (b) { b.onclick = function () {
         var i = +b.dataset.dn; if (i >= rows.length - 1) return; var x = rows[i]; rows[i] = rows[i + 1]; rows[i + 1] = x; gambar(); }; });
       box.querySelectorAll('[data-rm]').forEach(function (b) { b.onclick = function () { rows.splice(+b.dataset.rm, 1); gambar(); }; });
-      $('tAdd').onclick = function () { rows.push({ p: '', s: '' }); gambar(true); };
+      $('tAdd').onclick = function () { rows.push({ p: '', s: '', id: '' }); gambar(true); };
       if (fokusAkhir) { var ins = box.querySelectorAll('[data-p]'); if (ins.length) ins[ins.length - 1].focus(); }
 
       $('tSimpan').onclick = function () {
         var nm = baru ? namaBaru.trim() : kat;
-        var list = rows.filter(function (r) { return r.p.trim(); }).map(function (r) { return { Pekerjaan: r.p.trim(), Standar: r.s.trim() }; });
+        var list = rows.filter(function (r) { return r.p.trim(); }).map(function (r) { return { Pekerjaan: r.p.trim(), Standar: r.s.trim(), ID: r.id }; });
         if (!nm) { R.toast('Nama ruangan wajib diisi'); return; }
         if (!list.length) { R.toast('Isi minimal 1 pekerjaan'); return; }
         post({ action: 'tugasSimpan', kategori: nm, baru: baru, tugas: list })
