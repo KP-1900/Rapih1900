@@ -2,17 +2,22 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b5ea8">
   <title>RAPIH1900</title>
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
-    <button id="logoBtn" class="logo" title="Admin"><img id="logoImg" alt="BPS"><span id="logoTeks" hidden>BPS</span></button>
     <img id="logoApp" class="logoapp" alt="" hidden>
-    <div><h1 id="judul">RAPIH1900</h1><small id="subjudul"></small></div>
+    <div class="judulbox"><h1 id="judul">RAPIH1900</h1><small id="subjudul"></small></div>
   </header>
+
+  <!-- Logo BPS (ketuk = masuk admin) -->
+  <div class="brandbar">
+    <button id="logoBtn" class="logo" title="Admin"><img id="logoImg" alt="BPS"><span id="logoTeks" hidden>BPS</span></button>
+  </div>
 
   <main>
     <!-- Halaman PPPK -->
@@ -24,7 +29,7 @@
     <nav id="tabArea" class="tabarea"></nav>
     <section id="panel" hidden>
       <div class="statusbar"><b id="pgs"></b><span id="simpanStatus"></span></div>
-      <label class="check libur"><input type="checkbox" id="chkLibur"> Libur (X)</label>
+      <label class="check libur"><span>Libur (X)</span><input type="checkbox" id="chkLibur"></label>
       <div id="daftar" class="daftar"></div>
       <div class="card foto">
         <b>Foto bukti</b>
