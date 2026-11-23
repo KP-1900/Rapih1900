@@ -40,6 +40,21 @@
     return o;
   }
 
+  // blok tanda tangan: jabatan (baris b), instansi (b+1), nama (b+3), NIP (b+4)
+  // kolom kiri->kanan sesuai template: jabatan B,C,D; sisanya A,C,D
+  function isiPejabat(ws, b) {
+    var pj = (R.M.pejabat || []).slice(0, 3);
+    var kolJab = [2, 3, 4], kolLain = [1, 3, 4];
+    pj.forEach(function (p, i) {
+      var nip = String(p.NIP || '').trim();
+      if (/^\d/.test(nip)) nip = 'NIP. ' + nip;
+      ws.getCell(b, kolJab[i]).value = p.Peran || null;
+      ws.getCell(b + 1, kolLain[i]).value = p.Instansi || null;
+      ws.getCell(b + 3, kolLain[i]).value = p.Nama || null;
+      ws.getCell(b + 4, kolLain[i]).value = nip || null;
+    });
+  }
+
   // names = daftar petugas yang mengisi slot ini pada bulan tsb
   function isiSheet(ws, area, rows, ym, names) {
     var tugas = R.tugasArea(area);
@@ -99,7 +114,11 @@
     var nx = new Date(+p[0], +p[1], 1);
     for (var f = s.akhir; f <= ws.rowCount; f++) {
       var v = ws.getCell(f, 1).value;
-      if (typeof v === 'string' && v.indexOf(R.C.KOTA) === 0) ws.getCell(f, 1).value = R.C.KOTA + ', 1 ' + R.BULAN[nx.getMonth()] + ' ' + nx.getFullYear();
+      if (typeof v === 'string' && v.indexOf(R.C.KOTA) === 0) {
+        ws.getCell(f, 1).value = R.C.KOTA + ', 1 ' + R.BULAN[nx.getMonth()] + ' ' + nx.getFullYear();
+        isiPejabat(ws, f + 1);   // baris jabatan tepat di bawah baris tanggal
+        break;
+      }
     }
   }
 

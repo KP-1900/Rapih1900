@@ -20,8 +20,8 @@
   document.querySelectorAll('.admintabs button').forEach(function (b) { b.onclick = function () { tab(b.dataset.at); }; });
   function tab(t) {
     document.querySelectorAll('.admintabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.at === t); });
-    ['petugas', 'tugas', 'unduh'].forEach(function (x) { $('at-' + x).hidden = x !== t; });
-    ({ petugas: viewPetugas, tugas: viewTugas, unduh: viewUnduh })[t]();
+    ['petugas', 'tugas', 'pejabat', 'unduh'].forEach(function (x) { $('at-' + x).hidden = x !== t; });
+    ({ petugas: viewPetugas, tugas: viewTugas, pejabat: viewPejabat, unduh: viewUnduh })[t]();
   }
   function post(body) { body.adminPin = pass; return R.apiPost(body); }
 
@@ -135,6 +135,29 @@
     }
     gambar();
     box.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ---------- pejabat penandatangan (Master_Pejabat; tampil di bagian TTD Excel) ----------
+  function viewPejabat() {
+    var h = '<div class="card form"><b>Pejabat penandatangan</b><small style="color:var(--muted)">Urutan = posisi kiri ke kanan di bagian tanda tangan Excel.</small>';
+    R.M.pejabat.slice(0, 3).forEach(function (p, i) {
+      h += '<div class="card form" data-pj="' + i + '"><b>Pejabat ' + (i + 1) + '</b>' +
+        '<label>Jabatan / Peran<input data-f="Peran" value="' + esc(p.Peran) + '"></label>' +
+        '<label>Nama<input data-f="Nama" value="' + esc(p.Nama) + '"></label>' +
+        '<label>NIP<input data-f="NIP" value="' + esc(p.NIP) + '" placeholder="NIP. 1987..."></label>' +
+        '<label>Instansi<input data-f="Instansi" value="' + esc(p.Instansi) + '"></label></div>';
+    });
+    $('at-pejabat').innerHTML = h + '<button class="primary" id="pjSimpan">Simpan</button></div>';
+    $('pjSimpan').onclick = function () {
+      var list = [].map.call($('at-pejabat').querySelectorAll('[data-pj]'), function (box) {
+        var o = {}; box.querySelectorAll('[data-f]').forEach(function (e) { o[e.dataset.f] = e.value; }); return o;
+      });
+      $('pjSimpan').disabled = true;
+      post({ action: 'pejabatSimpan', pejabat: list })
+        .then(function (r) { if (!r.ok) throw new Error(r.error); R.toast('✔ Tersimpan'); return R.loadMaster().then(viewPejabat); })
+        .catch(function (e) { R.toast('❌ ' + e.message); })
+        .then(function () { var b = $('pjSimpan'); if (b) b.disabled = false; });
+    };
   }
 
   // ---------- unduh (paraf petugas & pengawas terisi otomatis di Excel) ----------
