@@ -20,8 +20,8 @@
   document.querySelectorAll('.admintabs button').forEach(function (b) { b.onclick = function () { tab(b.dataset.at); }; });
   function tab(t) {
     document.querySelectorAll('.admintabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.at === t); });
-    ['petugas', 'unduh'].forEach(function (x) { $('at-' + x).hidden = x !== t; });
-    ({ petugas: viewPetugas, unduh: viewUnduh })[t]();
+    ['petugas', 'tugas', 'unduh'].forEach(function (x) { $('at-' + x).hidden = x !== t; });
+    ({ petugas: viewPetugas, tugas: viewTugas, unduh: viewUnduh })[t]();
   }
   function post(body) { body.adminPin = pass; return R.apiPost(body); }
 
@@ -29,7 +29,7 @@
   function viewPetugas() {
     var h = '<button class="primary" id="btnTambah">+ Tambah PPPK</button><div class="card">';
     R.M.petugas.forEach(function (p) {
-      var ar = R.M.area.filter(function (a) { return a.Petugas === p.Nama; }).map(function (a) { return a.Area; });
+      var ar = R.M.area.filter(function (a) { return a.Petugas === p.Nama; }).map(function (a) { return a.Kategori; });
       h += '<div class="prow"><div><b>' + esc(p.Nama) + '</b><small>NIK: ' + esc(p.NIK || '-') + '</small><small>' + (ar.length ? esc(ar.join(', ')) : 'belum ada ruangan') + '</small></div>' +
         '<div><button class="kecil" data-ed="' + esc(p.Nama) + '">Ubah</button> <button class="kecil" data-del="' + esc(p.Nama) + '">Hapus</button></div></div>';
     });
@@ -48,9 +48,13 @@
     var h = '<div class="card form"><b>' + (nama ? 'Ubah ' + esc(nama) : 'Tambah PPPK') + '</b>' +
       '<label>Nama<input id="fNama" value="' + esc(p.Nama) + '"' + (nama ? ' readonly' : '') + '></label>' +
       '<label>NIK<input id="fNik" value="' + esc(p.NIK) + '" inputmode="numeric"></label><b>Ruangan yang dikerjakan</b><div class="areagrid">';
-    R.M.area.forEach(function (a) {
-      var lain = a.Petugas && a.Petugas !== nama ? ' <small>(' + esc(a.Petugas) + ')</small>' : '';
-      h += '<label><input type="checkbox" value="' + esc(a.Area) + '"' + (nama && a.Petugas === nama ? ' checked' : '') + '>' + esc(a.Area) + lain + '</label>';
+    var kats = [];
+    R.M.tugas.forEach(function (t) { if (kats.indexOf(t.Kategori) < 0) kats.push(t.Kategori); });
+    kats.forEach(function (k) {
+      var slot = R.M.area.filter(function (a) { return a.Kategori === k; });
+      var milik = nama && slot.some(function (a) { return a.Petugas === nama; });
+      var lain = slot.filter(function (a) { return a.Petugas && a.Petugas !== nama; }).map(function (a) { return a.Petugas; });
+      h += '<label><input type="checkbox" value="' + esc(k) + '"' + (milik ? ' checked' : '') + '>' + esc(k) + (lain.length ? ' <small>(' + esc(lain.join(', ')) + ')</small>' : '') + '</label>';
     });
     $('formPetugas').innerHTML = h + '</div><button class="primary" id="fSimpan">Simpan</button></div>';
     $('fSimpan').onclick = function () {
@@ -63,6 +67,75 @@
     $('formPetugas').scrollIntoView({ behavior: 'smooth' });
   }
   function segarkan() { R.loadMaster().then(viewPetugas); }
+
+  // ---------- tugas (Master_Tugas: tambah / ubah / hapus ruangan & pekerjaannya) ----------
+  var MAX_TUGAS = 15;   // sama dengan MAX_TUGAS di Code.gs (kolom T1..T15 di sheet Harian)
+  function daftarKategori() {
+    var k = []; R.M.tugas.forEach(function (t) { if (k.indexOf(t.Kategori) < 0) k.push(t.Kategori); }); return k;
+  }
+  function viewTugas() {
+    var h = '<button class="primary" id="btnTambahK">+ Tambah Ruangan</button><div class="card">';
+    daftarKategori().forEach(function (k) {
+      var n = R.M.tugas.filter(function (t) { return t.Kategori === k; }).length;
+      h += '<div class="prow"><div><b>' + esc(k) + '</b><small>' + n + ' pekerjaan</small></div><div><button class="kecil" data-ek="' + esc(k) + '">Ubah</button></div></div>';
+    });
+    $('at-tugas').innerHTML = h + '</div><div id="formTugas"></div>';
+    $('btnTambahK').onclick = function () { formTugas(null); };
+    $('at-tugas').querySelectorAll('[data-ek]').forEach(function (b) { b.onclick = function () { formTugas(b.dataset.ek); }; });
+  }
+  function segarkanTugas() { return R.loadMaster().then(viewTugas); }
+
+  function formTugas(kat) {
+    var baru = !kat, namaBaru = '';
+    var rows = baru ? [{ p: '', s: '' }] : R.M.tugas.filter(function (t) { return t.Kategori === kat; })
+      .sort(function (a, b) { return a.No - b.No; }).map(function (t) { return { p: t.Pekerjaan, s: t.Standar }; });
+    var box = $('formTugas');
+
+    function gambar(fokusAkhir) {
+      var h = '<div class="card form"><b>' + (baru ? 'Tambah Ruangan' : 'Ubah ' + esc(kat)) + '</b>' +
+        (baru ? '<label>Nama ruangan<input id="tKat" placeholder="mis. GUDANG" value="' + esc(namaBaru) + '"></label>' : '') +
+        '<b>Daftar pekerjaan <small style="font-weight:400">(maks ' + MAX_TUGAS + ')</small></b>';
+      rows.forEach(function (r, i) {
+        h += '<div class="trow"><span class="tno">' + (i + 1) + '</span><div class="tin">' +
+          '<input data-p="' + i + '" value="' + esc(r.p) + '" placeholder="Pekerjaan">' +
+          '<input data-s="' + i + '" value="' + esc(r.s) + '" placeholder="Standar (mis. Bersih, Tidak Kotor)"></div>' +
+          '<div class="tbtn"><button type="button" data-up="' + i + '">↑</button><button type="button" data-dn="' + i + '">↓</button><button type="button" data-rm="' + i + '">✕</button></div></div>';
+      });
+      h += '<button type="button" class="ghost" id="tAdd"' + (rows.length >= MAX_TUGAS ? ' disabled' : '') + '>+ Tambah pekerjaan</button>' +
+        '<button class="primary" id="tSimpan">Simpan</button>' +
+        (baru ? '' : '<button type="button" class="ghost bahaya" id="tHapus">Hapus ruangan ini</button>') + '</div>';
+      box.innerHTML = h;
+
+      if (baru) $('tKat').oninput = function () { namaBaru = this.value; };
+      box.querySelectorAll('[data-p]').forEach(function (e) { e.oninput = function () { rows[+e.dataset.p].p = e.value; }; });
+      box.querySelectorAll('[data-s]').forEach(function (e) { e.oninput = function () { rows[+e.dataset.s].s = e.value; }; });
+      box.querySelectorAll('[data-up]').forEach(function (b) { b.onclick = function () {
+        var i = +b.dataset.up; if (i < 1) return; var x = rows[i]; rows[i] = rows[i - 1]; rows[i - 1] = x; gambar(); }; });
+      box.querySelectorAll('[data-dn]').forEach(function (b) { b.onclick = function () {
+        var i = +b.dataset.dn; if (i >= rows.length - 1) return; var x = rows[i]; rows[i] = rows[i + 1]; rows[i + 1] = x; gambar(); }; });
+      box.querySelectorAll('[data-rm]').forEach(function (b) { b.onclick = function () { rows.splice(+b.dataset.rm, 1); gambar(); }; });
+      $('tAdd').onclick = function () { rows.push({ p: '', s: '' }); gambar(true); };
+      if (fokusAkhir) { var ins = box.querySelectorAll('[data-p]'); if (ins.length) ins[ins.length - 1].focus(); }
+
+      $('tSimpan').onclick = function () {
+        var nm = baru ? namaBaru.trim() : kat;
+        var list = rows.filter(function (r) { return r.p.trim(); }).map(function (r) { return { Pekerjaan: r.p.trim(), Standar: r.s.trim() }; });
+        if (!nm) { R.toast('Nama ruangan wajib diisi'); return; }
+        if (!list.length) { R.toast('Isi minimal 1 pekerjaan'); return; }
+        post({ action: 'tugasSimpan', kategori: nm, baru: baru, tugas: list })
+          .then(function (r) { if (!r.ok) throw new Error(r.error); R.toast('✔ Tersimpan'); return segarkanTugas(); })
+          .catch(function (e) { R.toast('❌ ' + e.message); });
+      };
+      if (!baru) $('tHapus').onclick = function () {
+        if (!confirm('Hapus ruangan ' + kat + '? Penugasan petugas di ruangan ini ikut lepas (data harian lama tetap tersimpan).')) return;
+        post({ action: 'kategoriHapus', kategori: kat })
+          .then(function (r) { if (!r.ok) throw new Error(r.error); R.toast('✔ Dihapus'); return segarkanTugas(); })
+          .catch(function (e) { R.toast('❌ ' + e.message); });
+      };
+    }
+    gambar();
+    box.scrollIntoView({ behavior: 'smooth' });
+  }
 
   // ---------- unduh (paraf petugas & pengawas terisi otomatis di Excel) ----------
   function viewUnduh() {
