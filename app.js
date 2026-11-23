@@ -27,14 +27,23 @@
   R.loadMaster = function () {
     return R.apiGet({ action: 'master' }).then(function (r) { if (!r.ok) throw new Error(r.error); R.M = r; return r; });
   };
-  R.kecilkanFoto = function (file) {   // maks 1280px agar upload cepat
+  R.kecilkanFoto = function (file) {   // target < 300 KB: turun bertahap kualitas, lalu ukuran
+    var MAX = 300 * 1024;
     return new Promise(function (res) {
       var img = new Image();
       img.onload = function () {
-        var s = Math.min(1, 1280 / Math.max(img.width, img.height));
-        var c = document.createElement('canvas'); c.width = img.width * s; c.height = img.height * s;
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        res(c.toDataURL('image/jpeg', 0.75));
+        var dim = 1280, q = 0.75, url;
+        for (var i = 0; i < 12; i++) {
+          var s = Math.min(1, dim / Math.max(img.width, img.height));
+          var c = document.createElement('canvas');
+          c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          url = c.toDataURL('image/jpeg', q);
+          if (url.length * 0.75 < MAX * 0.97) break;
+          if (q > 0.45) q -= 0.1; else dim = Math.round(dim * 0.8);
+        }
+        URL.revokeObjectURL(img.src);
+        res(url);
       };
       img.src = URL.createObjectURL(file);
     });
@@ -57,7 +66,7 @@
   var antrean = Promise.resolve();
 
   function areaSaya() { return R.M.area.filter(function (a) { return a.Petugas === $('selNama').value; }); }
-  function recBaru() { return { tugas: [], libur: false, parafPetugas: false, catatan: '', foto: '', fotoBaru: null }; }
+  function recBaru() { return { tugas: [], libur: false, parafPetugas: false, catatan: '', foto: '', fotoBaru: null, hapusFoto: false }; }
 
   function isiNama() {
     var pil = localStorage.getItem('rapih_nama') || '';
@@ -118,12 +127,19 @@
     var n = t.filter(function (_, i) { return d.tugas[i] === 'V'; }).length;
     $('pgs').textContent = aktif + ' — ' + n + '/' + t.length + ' selesai';
   }
-  function tampilFoto(src) { var i = $('fotoPreview'); i.hidden = !src; i.src = src || ''; }
+  function tampilFoto(src) { $('fotoPreview').src = src || ''; $('fotoWrap').hidden = !src; }
 
   $('chkLibur').onchange = function () { data[aktif].libur = this.checked; $('daftar').classList.toggle('mati', this.checked); berubah(); };
+  $('hapusFoto').onclick = function () {
+    var area = aktif, d = data[area];
+    if (!confirm('Hapus foto ini?')) return;
+    d.fotoBaru = null; d.hapusFoto = true; d.foto = '';
+    tampilFoto('');
+    simpan(area);
+  };
   $('inFoto').onchange = function (e) {
     var f = e.target.files[0], area = aktif; if (!f) return;
-    R.kecilkanFoto(f).then(function (url) { data[area].fotoBaru = url; tampilFoto(url); simpan(area); });
+    R.kecilkanFoto(f).then(function (url) { data[area].fotoBaru = url; data[area].hapusFoto = false; tampilFoto(url); simpan(area); });
     e.target.value = '';
   };
 
@@ -144,12 +160,14 @@
       parafPetugas: !d.libur && d.tugas.some(function (v) { return v === 'V'; }),
       catatan: d.catatan, oleh: nama
     };
-    var foto = d.fotoBaru;
+    var foto = d.fotoBaru, hapus = d.hapusFoto && !foto;
     if (foto) body.foto = { base64: foto.split(',')[1], mime: 'image/jpeg' };
+    if (hapus) body.hapusFoto = true;
     $('simpanStatus').className = ''; $('simpanStatus').textContent = 'Menyimpan...';
     antrean = antrean.then(function () { return R.apiPost(body); }).then(function (r) {
       if (!r.ok) throw new Error(r.error);
       if (foto && d.fotoBaru === foto) { d.foto = r.foto || d.foto; d.fotoBaru = null; }
+      if (hapus && d.hapusFoto) d.hapusFoto = false;
       if (area === aktif) { $('simpanStatus').className = ''; $('simpanStatus').textContent = '✔ Tersimpan'; }
     }).catch(function () {
       if (area === aktif) {

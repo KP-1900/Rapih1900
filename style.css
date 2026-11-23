@@ -70,7 +70,9 @@ label.libur input { width:26px; height:26px; }
 .fotoaksi { display:flex; flex-wrap:wrap; gap:10px; }
 .btnfoto.alt { background:transparent; color:var(--aksen); border:2px solid var(--aksen); }
 .btnfoto { background:var(--biru); color:#fff; border:2px solid var(--biru); padding:10px 18px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; flex-direction:row; }
-#fotoPreview { max-width:100%; max-height:260px; border-radius:12px; }
+#fotoPreview { max-width:100%; max-height:260px; border-radius:12px; display:block; }
+.fotowrap { position:relative; display:inline-block; max-width:100%; }
+.hapusfoto { position:absolute; top:8px; right:8px; width:34px; height:34px; padding:0; border-radius:50%; background:var(--bad); color:#fff; border:2px solid #fff; font-weight:700; line-height:1; }
 
 /* dialog */
 dialog { border:0; border-radius:16px; padding:18px; width:min(92vw,340px); }

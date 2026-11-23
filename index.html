@@ -38,7 +38,10 @@
           <label class="btnfoto">📷 Kamera<input type="file" id="inKamera" accept="image/*" capture="environment" hidden></label>
           <label class="btnfoto alt">🖼 Galeri / File<input type="file" id="inFoto" accept="image/*" hidden></label>
         </div>
-        <img id="fotoPreview" alt="" hidden>
+        <div id="fotoWrap" class="fotowrap" hidden>
+          <img id="fotoPreview" alt="">
+          <button type="button" id="hapusFoto" class="hapusfoto" title="Hapus foto">✕</button>
+        </div>
       </div>
     </section>
   </main>
