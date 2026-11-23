@@ -20,8 +20,8 @@
   document.querySelectorAll('.admintabs button').forEach(function (b) { b.onclick = function () { tab(b.dataset.at); }; });
   function tab(t) {
     document.querySelectorAll('.admintabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.at === t); });
-    ['petugas', 'verif', 'unduh'].forEach(function (x) { $('at-' + x).hidden = x !== t; });
-    ({ petugas: viewPetugas, verif: viewVerif, unduh: viewUnduh })[t]();
+    ['petugas', 'unduh'].forEach(function (x) { $('at-' + x).hidden = x !== t; });
+    ({ petugas: viewPetugas, unduh: viewUnduh })[t]();
   }
   function post(body) { body.adminPin = pass; return R.apiPost(body); }
 
@@ -64,33 +64,7 @@
   }
   function segarkan() { R.loadMaster().then(viewPetugas); }
 
-  // ---------- verifikasi pengawas ----------
-  function viewVerif() {
-    $('at-verif').innerHTML = '<label>Tanggal <input type="date" id="vTgl"></label><div id="vOut" class="card">Memuat...</div>';
-    $('vTgl').value = R.hariIni();
-    $('vTgl').onchange = muatVerif; muatVerif();
-  }
-  function muatVerif() {
-    var tgl = $('vTgl').value;
-    R.apiGet({ action: 'bulan', ym: tgl.slice(0, 7) }).then(function (r) {
-      var by = {}; (r.rows || []).filter(function (x) { return x.tanggal === tgl; }).forEach(function (x) { by[x.area] = x; });
-      $('vOut').innerHTML = R.M.area.map(function (a) {
-        var x = by[a.Area], t = R.tugasArea(a.Area), n = x ? t.filter(function (_, i) { return x.tugas[i] === 'V'; }).length : 0;
-        var st = !x ? 'belum diisi' : x.libur ? 'libur' : n + '/' + t.length;
-        return '<div class="vrow"><span><b>' + esc(a.Area) + '</b><br><small>' + esc(a.Petugas || '-') + ' · ' + st + '</small></span>' +
-          (x && x.foto ? '<a href="' + esc(x.foto) + '" target="_blank"><img src="' + esc(x.foto) + '" alt="foto"></a>' : '<span></span>') +
-          '<label class="check"><input type="checkbox" data-a="' + esc(a.Area) + '"' + (x && x.parafPengawas ? ' checked' : '') + '> Paraf</label></div>';
-      }).join('');
-      $('vOut').querySelectorAll('input').forEach(function (c) {
-        c.onchange = function () {
-          post({ action: 'parafPengawas', area: c.dataset.a, tanggal: tgl, nilai: c.checked })
-            .then(function (r) { R.toast(r.ok ? '✔ Paraf tersimpan' : '❌ ' + r.error); });
-        };
-      });
-    });
-  }
-
-  // ---------- unduh ----------
+  // ---------- unduh (paraf petugas & pengawas terisi otomatis di Excel) ----------
   function viewUnduh() {
     $('at-unduh').innerHTML = '<div class="card form"><label>Bulan <input type="month" id="uBulan"></label>' +
       '<label>Petugas <select id="uPetugas"><option value="">Semua ruangan</option>' +

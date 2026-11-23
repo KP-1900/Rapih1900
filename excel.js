@@ -34,8 +34,15 @@
       if (tugas[i]) { ws.getCell(r, 2).value = tugas[i].Pekerjaan; ws.getCell(r, 3).value = tugas[i].Standar; }
       tulisHari(r, function (x) { return !x ? null : x.libur ? 'X' : (x.tugas[i] === 'V' ? 'V' : null); });
     });
-    if (barisPetugas) tulisHari(barisPetugas, function (x) { return !x ? null : x.libur ? 'X' : (x.parafPetugas ? 'V' : null); });
-    if (barisPengawas) tulisHari(barisPengawas, function (x) { return !x ? null : x.libur ? 'X' : (x.parafPengawas ? 'V' : null); });
+
+    // paraf otomatis: hari itu ada pekerjaan yang diceklis -> V (libur -> X)
+    function parafOtomatis(x) {
+      if (!x) return null;
+      if (x.libur) return 'X';
+      return (x.tugas || []).some(function (v) { return v === 'V'; }) ? 'V' : null;
+    }
+    if (barisPetugas) tulisHari(barisPetugas, parafOtomatis);
+    if (barisPengawas) tulisHari(barisPengawas, parafOtomatis);
 
     // Nama & NIK: sel di sebelah kanan tanda ':' pada baris 2 dan 3
     var pt = R.M.petugas.filter(function (x) { return x.Nama === info.Petugas; })[0];
