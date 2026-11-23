@@ -61,8 +61,8 @@
   })();
 
   // ---------- state PPPK ----------
-  var data = {};            // area -> catatan hari itu
-  var aktif = null;         // area yang sedang dibuka
+  var data = {};            // area (slot) -> catatan hari itu
+  var aktif = null;         // slot yang sedang dibuka
   var antrean = Promise.resolve();
 
   function areaSaya() { return R.M.area.filter(function (a) { return a.Petugas === $('selNama').value; }); }
@@ -97,9 +97,10 @@
     return d.libur || (t.length && t.every(function (_, i) { return d.tugas[i] === 'V'; }));
   }
 
+  // Tampilan memakai KATEGORI (mis. "PANTRY"), kunci data tetap slot (mis. "PANTRY 2")
   function gambarTab() {
     $('tabArea').innerHTML = areaSaya().map(function (a) {
-      return '<button data-a="' + R.esc(a.Area) + '" class="' + (a.Area === aktif ? 'aktif ' : '') + (lengkap(a.Area) ? 'lengkap' : '') + '">' + R.esc(a.Area) + '</button>';
+      return '<button data-a="' + R.esc(a.Area) + '" class="' + (a.Area === aktif ? 'aktif ' : '') + (lengkap(a.Area) ? 'lengkap' : '') + '">' + R.esc(a.Kategori) + '</button>';
     }).join('');
     $('tabArea').querySelectorAll('button').forEach(function (b) { b.onclick = function () { bukaArea(b.dataset.a); }; });
   }
@@ -125,7 +126,7 @@
   function hitung() {
     var t = R.tugasArea(aktif), d = data[aktif];
     var n = t.filter(function (_, i) { return d.tugas[i] === 'V'; }).length;
-    $('pgs').textContent = aktif + ' — ' + n + '/' + t.length + ' selesai';
+    $('pgs').textContent = R.areaDari(aktif).Kategori + ' — ' + n + '/' + t.length + ' selesai';
   }
   function tampilFoto(src) { $('fotoPreview').src = src || ''; $('fotoWrap').hidden = !src; }
 
