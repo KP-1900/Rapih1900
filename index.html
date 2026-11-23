@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RAPIH1900</title>
+  <link rel="icon" href="logo.ico">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="logoBtn" class="logo" title="Admin"><img id="logoImg" alt="BPS"><span id="logoTeks" hidden>BPS</span></button>
+    <img id="logoApp" class="logoapp" alt="" hidden>
+    <div><h1 id="judul">RAPIH1900</h1><small id="subjudul"></small></div>
+  </header>
+
+  <main>
+    <!-- Halaman PPPK -->
+    <section class="card pilih">
+      <label>Nama <select id="selNama"></select></label>
+      <label>Tanggal <input type="date" id="selTanggal"></label>
+    </section>
+    <div id="pesan" class="pesan"></div>
+    <nav id="tabArea" class="tabarea"></nav>
+    <section id="panel" hidden>
+      <div class="statusbar"><b id="pgs"></b><span id="simpanStatus"></span></div>
+      <label class="check libur"><input type="checkbox" id="chkLibur"> Libur (X)</label>
+      <div id="daftar" class="daftar"></div>
+      <div class="card foto">
+        <b>Foto bukti</b>
+        <label class="btnfoto">📷 Ambil / pilih foto<input type="file" id="inFoto" accept="image/*" hidden></label>
+        <img id="fotoPreview" alt="" hidden>
+      </div>
+    </section>
+  </main>
+
+  <!-- Dialog password admin -->
+  <dialog id="dlgLogin">
+    <form method="dialog" id="formLogin">
+      <h3>Masuk Admin</h3>
+      <input type="password" id="adminPass" placeholder="Password admin" autocomplete="current-password">
+      <div id="loginErr" class="err"></div>
+      <div class="baris"><button type="button" id="loginBatal" class="ghost">Batal</button><button class="primary">Masuk</button></div>
+    </form>
+  </dialog>
+
+  <!-- Panel admin -->
+  <div id="admin" class="admin" hidden>
+    <div class="adminbar"><b>Admin RAPIH1900</b><button id="adminTutup" class="ghost">✕ Tutup</button></div>
+    <nav class="admintabs">
+      <button data-at="petugas" class="active">Petugas</button>
+      <button data-at="verif">Verifikasi</button>
+      <button data-at="unduh">Unduh Excel</button>
+    </nav>
+    <div class="adminbody">
+      <section id="at-petugas"></section>
+      <section id="at-verif" hidden></section>
+      <section id="at-unduh" hidden></section>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="excel.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
