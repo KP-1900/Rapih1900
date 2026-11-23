@@ -5,6 +5,6 @@ window.CONFIG = {
   SUBJUDUL: 'Rekap Aktivitas Pemeliharaan dan Inspeksi Harian',
   KOTA: 'Pangkal Pinang',
   TEMPLATE: 'template.xlsx',                         // file Excel acuan hasil unduhan
-  LOGO_APP: 'logo.ico',                              // logo aplikasi (ikon tab + samping judul)
-  LOGO: ['logobps.ico', 'logobps.ico']   // logo BPS (klik = masuk admin), dicoba berurutan
+  LOGO_APP: 'logo.png',                              // logo aplikasi (ikon tab + samping judul)
+  LOGO: ['logobps.png']                              // logo BPS (klik = masuk admin)
 };
