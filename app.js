@@ -66,7 +66,7 @@
   var antrean = Promise.resolve();
 
   function areaSaya() { return R.M.area.filter(function (a) { return a.Petugas === $('selNama').value; }); }
-  function recBaru() { return { tugas: [], libur: false, parafPetugas: false, catatan: '', foto: '', fotoBaru: null, hapusFoto: false }; }
+  function recBaru() { return { tugas: [], libur: false, parafPetugas: false, catatan: '', foto: [] }; }
 
   function isiNama() {
     var pil = localStorage.getItem('rapih_nama') || '';
@@ -85,7 +85,7 @@
     R.apiGet({ action: 'bulan', ym: tgl.slice(0, 7) }).then(function (r) {
       data = {};
       areas.forEach(function (a) { data[a.Area] = recBaru(); });
-      (r.rows || []).forEach(function (x) { if (x.tanggal === tgl && data[x.area]) data[x.area] = Object.assign(recBaru(), x); });
+      (r.rows || []).forEach(function (x) { if (x.tanggal === tgl && data[x.area]) data[x.area] = Object.assign(recBaru(), x, { foto: (x.foto || []).map(function (u) { return { url: u, t: 0 }; }) }); });
       $('pesan').textContent = '';
       if (!aktif || !data[aktif]) aktif = areas[0].Area;
       gambarTab(); bukaArea(aktif);
@@ -118,7 +118,7 @@
     $('daftar').querySelectorAll('input').forEach(function (c) {
       c.onchange = function () { d.tugas[+c.dataset.i] = c.checked ? 'V' : ''; berubah(); };
     });
-    tampilFoto(d.fotoBaru || d.foto);
+    tampilFoto();
     $('simpanStatus').textContent = ''; $('simpanStatus').className = '';
     hitung(); gambarTab();
   }
@@ -128,20 +128,40 @@
     var n = t.filter(function (_, i) { return d.tugas[i] === 'V'; }).length;
     $('pgs').textContent = R.areaDari(aktif).Kategori + ' — ' + n + '/' + t.length + ' selesai';
   }
-  function tampilFoto(src) { $('fotoPreview').src = src || ''; $('fotoWrap').hidden = !src; }
+  var BATAS_HAPUS = 10000;   // tombol silang hanya muncul 10 detik setelah upload
+  function tampilFoto() {
+    var d = data[aktif], sekarang = Date.now(), sisa = 0;
+    $('fotoList').innerHTML = (d.foto || []).map(function (f) {
+      var bisa = f.t && sekarang - f.t < BATAS_HAPUS;
+      if (bisa) sisa = Math.max(sisa, BATAS_HAPUS - (sekarang - f.t));
+      return '<div class="fotowrap"><img src="' + R.esc(f.url) + '" alt="">' +
+        (bisa ? '<button type="button" class="hapusfoto" data-u="' + R.esc(f.url) + '" title="Hapus foto">✕</button>' : '') + '</div>';
+    }).join('');
+    if (sisa) { var area = aktif; setTimeout(function () { if (aktif === area) tampilFoto(); }, sisa + 100); }
+  }
 
   $('chkLibur').onchange = function () { data[aktif].libur = this.checked; $('daftar').classList.toggle('mati', this.checked); berubah(); };
-  $('hapusFoto').onclick = function () {
-    var area = aktif, d = data[area];
+  $('fotoList').onclick = function (e) {
+    var b = e.target.closest('.hapusfoto'); if (!b) return;
+    var area = aktif, d = data[area], url = b.dataset.u;
     if (!confirm('Hapus foto ini?')) return;
-    d.fotoBaru = null; d.hapusFoto = true; d.foto = '';
-    tampilFoto('');
-    simpan(area);
+    d.foto = d.foto.filter(function (f) { return f.url !== url; });
+    tampilFoto();
+    simpan(area, { hapusFotoUrl: url }).then(function (r) {
+      if (!r || !r.ok) { R.toast('❌ ' + ((r && r.error) || 'Gagal menghapus')); muatHari(); }
+    });
   };
   $('inFoto').onchange = function (e) {
     var f = e.target.files[0], area = aktif; if (!f) return;
-    R.kecilkanFoto(f).then(function (url) { data[area].fotoBaru = url; data[area].hapusFoto = false; tampilFoto(url); simpan(area); });
     e.target.value = '';
+    $('simpanStatus').className = ''; $('simpanStatus').textContent = 'Mengunggah foto...';
+    R.kecilkanFoto(f).then(function (url) {
+      return simpan(area, { foto: { base64: url.split(',')[1], mime: 'image/jpeg' } });
+    }).then(function (r) {
+      if (!r || !r.ok || !r.foto) return;
+      data[area].foto.push({ url: r.foto, t: Date.now() });   // silang aktif 10 detik, setelah itu terkunci
+      if (area === aktif) tampilFoto();
+    });
   };
 
   // ---------- simpan otomatis ----------
@@ -154,28 +174,28 @@
     timer = setTimeout(function () { simpan(area); }, 700);
   }
 
-  function simpan(area) {
+  function simpan(area, extra) {
     var d = data[area], tugas = R.tugasArea(area), nama = $('selNama').value, tgl = $('selTanggal').value;
     var body = {
       action: 'simpan', area: area, tanggal: tgl, libur: d.libur, tugas: d.tugas.slice(0, tugas.length),
       parafPetugas: !d.libur && d.tugas.some(function (v) { return v === 'V'; }),
       catatan: d.catatan, oleh: nama
     };
-    var foto = d.fotoBaru, hapus = d.hapusFoto && !foto;
-    if (foto) body.foto = { base64: foto.split(',')[1], mime: 'image/jpeg' };
-    if (hapus) body.hapusFoto = true;
+    if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
     $('simpanStatus').className = ''; $('simpanStatus').textContent = 'Menyimpan...';
-    antrean = antrean.then(function () { return R.apiPost(body); }).then(function (r) {
+    var p = antrean.then(function () { return R.apiPost(body); }).then(function (r) {
       if (!r.ok) throw new Error(r.error);
-      if (foto && d.fotoBaru === foto) { d.foto = r.foto || d.foto; d.fotoBaru = null; }
-      if (hapus && d.hapusFoto) d.hapusFoto = false;
       if (area === aktif) { $('simpanStatus').className = ''; $('simpanStatus').textContent = '✔ Tersimpan'; }
-    }).catch(function () {
+      return r;
+    }).catch(function (err) {
       if (area === aktif) {
         var s = $('simpanStatus'); s.className = 'err'; s.textContent = '❌ Gagal menyimpan — ketuk untuk ulangi';
         s.onclick = function () { simpan(area); };
       }
+      return { ok: false, error: err.message };
     });
+    antrean = p;
+    return p;
   }
 
   $('selNama').onchange = function () { aktif = null; muatHari(); };

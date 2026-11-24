@@ -132,3 +132,7 @@ dialog input { width:100%; }
   /* aktifkan baris di bawah ini bila ingin daftar pekerjaan 2 kolom */
   /* .daftar { grid-template-columns: 1fr 1fr; } */
 }
+
+/* daftar foto bukti (boleh lebih dari satu) */
+.fotolist { display:flex; flex-wrap:wrap; gap:10px; }
+.fotolist .fotowrap img { max-height:200px; }
