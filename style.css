@@ -23,7 +23,7 @@ body { margin:0; font-family: system-ui, Segoe UI, Roboto, sans-serif; backgroun
 main { max-width:760px; margin:0 auto; padding:12px 14px 28px; }
 label { display:flex; flex-direction:column; gap:5px; font-size:13px; font-weight:500; color:var(--sub); }
 select, input, textarea, button { font:inherit; padding:11px 12px; border:1px solid var(--garis); border-radius:12px; background:var(--kartu); color:var(--teks); }
-select, input[type=date] { width:100%; min-width:0; min-height:46px; }
+select, input[type=date], input[type=month] { width:100%; min-width:0; min-height:46px; }
 button { cursor:pointer; }
 button.primary { background:var(--biru); color:#fff; border:0; font-weight:600; }
 button.ghost { background:transparent; }
