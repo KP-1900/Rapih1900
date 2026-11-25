@@ -104,7 +104,7 @@
       $('pesan').textContent = '';
       if (!aktif || !data[aktif]) aktif = areas[0].Area;
       gambarTab(); bukaArea(aktif);
-    }).catch(function () { $('pesan').textContent = '❌ Gagal memuat data. Cek koneksi / URL API.'; });
+    }).catch(function () { $('pesan').textContent = 'Tolong refresh kembali.'; });
   }
 
   function lengkap(area) {
@@ -206,7 +206,7 @@
     d.foto = d.foto.filter(function (f) { return f.url !== url; });
     tampilFoto();
     simpan(area, { hapusFotoUrl: url }).then(function (r) {
-      if (!r || !r.ok) { R.toast('❌ ' + ((r && r.error) || 'Gagal menghapus')); muatHari(); }
+      if (!r || !r.ok) { R.toast((r && r.error) || 'Belum berhasil, tolong coba lagi'); muatHari(); }
     });
   };
   $('inFoto').onchange = function (e) {
@@ -258,7 +258,7 @@
       return r;
     }).catch(function (err) {
       if (area === aktif) {
-        var s = $('simpanStatus'); s.className = 'err'; s.textContent = '❌ Gagal menyimpan — ketuk untuk ulangi';
+        var s = $('simpanStatus'); s.className = 'err'; s.textContent = 'Belum tersimpan — ketuk di sini untuk mencoba lagi';
         s.onclick = function () { simpan(area); };
       }
       return { ok: false, error: err.message };
@@ -280,5 +280,5 @@
 
   $('judul').textContent = C.JUDUL; $('subjudul').textContent = C.SUBJUDUL;
   if (C.API_URL.indexOf('GANTI_') === 0) { $('pesan').textContent = '⚠ Isi API_URL di config.js terlebih dahulu.'; return; }
-  R.loadMaster().then(R.mulai).catch(function (e) { $('pesan').textContent = '❌ Gagal memuat data: ' + e.message; });
+  R.loadMaster().then(R.mulai).catch(function (e) { $('pesan').textContent = 'Tolong refresh kembali.'; });
 })();
