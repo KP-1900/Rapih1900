@@ -31,6 +31,69 @@
     return h === 0 ? 'masuk hari ini' : h + ' hari belum selesai';
   };
 
+  // ---------- lihat foto layar penuh ----------
+  // Ketuk foto mana pun (ceklis harian, pratinjau & daftar laporan, admin) -> tampil penuh di layar.
+  // Tutup: tombol ✕, ketuk area gelap, tombol Esc, atau tombol Kembali di HP -> kembali ke halaman tadi.
+  (function () {
+    var css = document.createElement('style');
+    css.textContent =
+      '.fotowrap img,.lapfoto img{cursor:zoom-in}' +
+      '#fotoBox{position:fixed;top:0;right:0;bottom:0;left:0;z-index:99999;background:rgba(0,0,0,.93);display:flex;align-items:center;justify-content:center}' +
+      '#fotoBox[hidden]{display:none}' +
+      '#fotoBox img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;touch-action:pinch-zoom}' +
+      '#fotoBox .tutup{position:absolute;top:12px;right:12px;width:46px;height:46px;border:0;border-radius:50%;background:rgba(255,255,255,.25);color:#fff;font-size:26px;line-height:1;cursor:pointer;z-index:1}' +
+      '#fotoBox .tutup:hover{background:rgba(255,255,255,.4)}';
+    document.head.appendChild(css);
+
+    var box = document.createElement('div');
+    box.id = 'fotoBox'; box.hidden = true;
+    box.innerHTML = '<button type="button" class="tutup" aria-label="Tutup" title="Tutup">✕</button><img alt="Foto">';
+    document.body.appendChild(box);
+    var img = box.querySelector('img'), btn = box.querySelector('.tutup');
+    var terbuka = false, asli = '';
+
+    function sembunyi() {
+      if (!terbuka) return;
+      terbuka = false; box.hidden = true; img.removeAttribute('src');
+      document.body.style.overflow = '';
+    }
+    function tutup() {
+      if (!terbuka) return;
+      if (history.state && history.state.foto) history.back();   // popstate -> sembunyi()
+      else sembunyi();
+    }
+    function buka(src) {
+      if (!src) return;
+      asli = src;
+      var besar = src.replace(/sz=w\d+/, 'sz=w1600');             // foto Drive: minta ukuran besar
+      img.onerror = function () { if (img.src !== asli) { img.onerror = null; img.src = asli; } };
+      img.src = besar;
+      box.hidden = false; terbuka = true;
+      document.body.style.overflow = 'hidden';
+      try { history.pushState({ foto: 1 }, ''); } catch (e) {}
+    }
+
+    document.addEventListener('click', function (e) {
+      var im = e.target && e.target.closest ? e.target.closest('.fotowrap img, .lapfoto img') : null;
+      if (!im) return;
+      e.preventDefault(); e.stopPropagation();                   // jangan buka tab baru
+      buka(im.currentSrc || im.src);
+    }, true);
+    btn.onclick = function (e) { e.stopPropagation(); tutup(); };
+    box.onclick = function (e) { if (e.target !== img) tutup(); };
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') tutup(); });
+    window.addEventListener('popstate', sembunyi);
+  })();
+
+  // ---------- kalender langsung muncul saat kolom tanggal/bulan diketuk (desktop) ----------
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    if (!el || el.tagName !== 'INPUT' || (el.type !== 'date' && el.type !== 'month')) return;
+    if (!window.matchMedia || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;   // HP sudah benar bawaannya
+    if (el.readOnly || el.disabled || !el.showPicker) return;
+    try { el.showPicker(); } catch (err) {}
+  });
+
   // ---------- pindah menu ----------
   document.querySelectorAll('.menu button').forEach(function (b) { b.onclick = function () { tampil(b.dataset.v); }; });
   function tampil(v) {

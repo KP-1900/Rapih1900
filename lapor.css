@@ -19,17 +19,31 @@
 #lapKirim { margin-top:4px; padding:13px; font-size:16px; }
 #lapKirim:disabled { opacity:.6; }
 
-/* foto */
-.lapfoto { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
-.lapfoto img { max-height:150px; max-width:100%; border-radius:10px; display:block; border:1px solid var(--garis); }
+/* foto (laporan) - tidak boleh keluar dari kotaknya */
+.lapfoto { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; max-width:100%; min-width:0; }
+.lapfoto > * { min-width:0; max-width:100%; }
+.lapfoto img { max-height:150px; max-width:100%; height:auto; border-radius:10px; display:block; border:1px solid var(--garis); }
 .lapfoto a { display:block; }
+
+/* foto bukti (ceklis harian) - rapi di dalam kartu, tidak melewati garis pembatas */
+.foto { grid-template-columns:minmax(0,1fr); justify-items:stretch; min-width:0; overflow:hidden; }
+.fotolist { width:100%; min-width:0; }
+.fotolist .fotowrap { max-width:100%; min-width:0; }
+.fotowrap img { display:block; max-width:100%; height:auto; border-radius:12px; }
+.fotolist .fotowrap img { max-height:200px; }
+@media (max-width: 600px) {
+  .fotolist .fotowrap { flex:1 1 100%; width:100%; }
+  .fotolist .fotowrap img { width:100%; max-height:240px; object-fit:cover; }
+  .lapfoto > a, .lapfoto > .fotowrap { flex:1 1 calc(50% - 8px); }
+  .lapfoto img { width:100%; max-height:150px; object-fit:cover; }
+}
 
 /* daftar laporan */
 .lapbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; margin:18px 2px 4px; }
 .chips { display:flex; gap:6px; flex-wrap:wrap; }
 .chips button { padding:6px 12px; font-size:13px; border-radius:999px; }
 .chips button.on { background:var(--biru); color:#fff; border-color:var(--biru); }
-.lap { background:var(--kartu); border:1px solid var(--garis); border-left:5px solid var(--kotak); border-radius:14px; padding:12px 14px; margin-top:10px; box-shadow:0 1px 3px var(--shadow); }
+.lap { background:var(--kartu); border:1px solid var(--garis); border-left:5px solid var(--kotak); border-radius:14px; padding:12px 14px; margin-top:10px; box-shadow:0 1px 3px var(--shadow); max-width:100%; overflow:hidden; }
 .lap.p-Ringan { border-left-color:#2fb36a; }
 .lap.p-Sedang { border-left-color:#e0a100; }
 .lap.p-Mendesak { border-left-color:var(--bad); }
