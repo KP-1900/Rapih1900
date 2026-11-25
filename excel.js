@@ -240,26 +240,83 @@
     return o;
   }
 
-  function rapikan(ws) {
+  function kolHuruf(n) { var s = ''; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - m) / 26); } return s; }
+
+  // logo BPS: tinggi 2,95 cm, ditaruh di tengah kotak A2:C6 (rata kiri-kanan & atas-bawah)
+  function posisiLogo(ws) {
+    var EMU_CM = 360000, EMU_PT = 12700, EMU_PX = 9525, MDW = 7.33;   // MDW = lebar 1 karakter (px) kolom Excel
+    var tinggi = Math.round(2.95 * EMU_CM);
+    var lebarKol = [1, 2, 3].map(function (c) { return Math.round((ws.getColumn(c).width || 8.43) * MDW * EMU_PX); });
+    var boxW = lebarKol[0] + lebarKol[1] + lebarKol[2], boxH = 0, tinggiBaris = [];
+    for (var r = 2; r <= 6; r++) { var h = Math.round((ws.getRow(r).height || 15) * EMU_PT); tinggiBaris.push(h); boxH += h; }
+    ws.getImages().forEach(function (im) {
+      var rg = im.range;
+      if (!rg || !rg.tl || rg.tl.nativeRow > 5) return;                     // hanya gambar di bagian kepala
+      var rasio = rg.ext && rg.ext.height ? rg.ext.width / rg.ext.height : 5.5424;
+      var lebar = Math.round(tinggi * rasio);
+      var offX = Math.max(0, Math.floor((boxW - lebar) / 2));
+      var offY = Math.max(0, Math.floor((boxH - tinggi) / 2));
+      var col = 0; while (col < 2 && offX >= lebarKol[col]) { offX -= lebarKol[col]; col++; }
+      var row = 0; while (row < 4 && offY >= tinggiBaris[row]) { offY -= tinggiBaris[row]; row++; }
+      rg.tl.nativeCol = col; rg.tl.nativeColOff = offX;
+      rg.tl.nativeRow = 1 + row; rg.tl.nativeRowOff = offY;
+      rg.br = undefined; rg.editAs = 'oneCell';
+      rg.ext = { width: (lebar + 0.5) / EMU_PX, height: (tinggi + 0.5) / EMU_PX };
+    });
+  }
+
+  function rapikan(ws, n) {
+    n = n || 31;
     var gab = daftarMerge(ws);
-    var lc = kolLabel(ws, gab);                       // kolom label NAMA (sebelum sel dilepas)
+    var lc0 = kolLabel(ws, gab);                      // kolom label NAMA di template (sebelum sel dilepas)
+    var k = Math.max(0, 31 - n);                      // jumlah kolom hari yang tidak dipakai (bulan 30 hari = 1, Februari = 2/3)
+    var akhirKol = 3 + n;                             // kolom hari terakhir (31 hari = AH)
+    var lc = lc0 - k;                                 // blok identitas ikut bergeser ke kiri
+
     // kotak logo/instansi selalu satu gabungan A2:C6 (seperti sheet TOILET)
     gab = gab.filter(function (m) { return !(m.left === 1 && m.right === 3 && m.top >= 2 && m.bottom <= 6); });
     gab.push({ left: 1, right: 3, top: 2, bottom: 6 });
+    // sesuaikan gabungan sel dengan jumlah hari
+    gab = gab.map(function (m) {
+      var o = { left: m.left, right: m.right, top: m.top, bottom: m.bottom };
+      if (!k) return o;
+      if (o.top >= 2 && o.bottom <= 5 && o.left >= lc0) { o.left -= k; o.right -= k; }        // blok identitas
+      else if (o.top === 2 && o.left === 4 && o.bottom === 5) o.right = lc - 1;                // judul
+      else if (o.right >= 34) o.right = akhirKol;                                              // baris selebar tabel
+      return o;
+    });
     lepasSemua(ws);                                   // kerja di sel biasa dulu, gabungkan lagi di akhir
+
+    if (k) {
+      // geser blok identitas (baris 2-5) ke kiri sejauh k kolom
+      for (var rr = 2; rr <= 5; rr++) {
+        for (var cc = lc0; cc <= 34; cc++) {
+          var sc = ws.getCell(rr, cc), dc = ws.getCell(rr, cc - k);
+          dc.value = sc.value; dc.style = Object.assign({}, sc.style);
+        }
+      }
+      // buang kolom hari yang tidak ada (isi + garis)
+      for (var r2 = 1; r2 <= ws.rowCount; r2++) {
+        for (var c2 = akhirKol + 1; c2 <= 34; c2++) { var x = ws.getCell(r2, c2); x.value = null; x.style = {}; }
+      }
+      // area cetak ikut menyempit
+      var pa = ws.pageSetup && ws.pageSetup.printArea;
+      if (pa) ws.pageSetup.printArea = String(pa).replace(/:\$?[A-Z]+(\$?\d+)/, ':' + kolHuruf(akhirKol) + '$1');
+    }
 
     // 0) kepala (baris 2-6): semua garis tepi dibuat penuh, tidak ada yang putus
     kotak(ws, 2, 6, 1, 3);                            // logo + nama instansi
     kotak(ws, 2, 5, 4, lc - 1);                       // judul
-    kotak(ws, 2, 5, lc, 34);                          // NAMA / NIK / RUANG / LANTAI
-    for (var ri = 2; ri <= 5; ri++) kotak(ws, ri, ri, lc, 34);   // garis pemisah tiap baris NAMA/NIK/RUANG/LANTAI, penuh sampai kanan
-    kotak(ws, 6, 6, 4, 34);                           // "CHECKLIST KETUNTASAN KEGIATAN PER-HARI"
+    kotak(ws, 2, 5, lc, akhirKol);                    // NAMA / NIK / RUANG / LANTAI
+    for (var ri = 2; ri <= 5; ri++) kotak(ws, ri, ri, lc, akhirKol);   // garis pemisah tiap baris, penuh sampai kanan
+    kotak(ws, 6, 6, 4, akhirKol);                     // "CHECKLIST KETUNTASAN KEGIATAN PER-HARI"
     ws.getRow(6).height = 33;                         // tinggi baris 6 selalu 33
+    posisiLogo(ws);                                   // logo 2,95 cm di tengah kotak
 
-    // 1) tabel utama: dari baris judul kolom sampai paraf pengawas, kolom A..AH
+    // 1) tabel utama: dari baris judul kolom sampai paraf pengawas
     var s = pindai(ws);
     var akhir = s.pengawas || s.petugas || s.akhir;
-    if (akhir) garis(ws, 7, akhir, 1, 34);
+    if (akhir) garis(ws, 7, akhir, 1, akhirKol);
 
     // 2) tabel keterangan (X / PAGI / SIANG / SORE), kolom A..C
     var ketemu = false;
@@ -355,7 +412,7 @@
           perbaruiJudul(x.ws, x.nama);
           if (x.baruKat) judulKategori(x.ws, x.a.Kategori || x.a.Area);   // judul + label "RUANG" untuk ruangan baru
           isiSheet(x.ws, x.a.Area, x.rA, ym, x.names);
-          rapikan(x.ws);                       // garis kepala & tabel + tinggi baris 6 + font Calibri
+          rapikan(x.ws, R.jmlHari(ym));        // kepala, kolom sesuai jumlah hari, logo, tinggi baris 6, font Calibri
         });
         return wb.xlsx.writeBuffer();
       });

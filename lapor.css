@@ -69,3 +69,16 @@
 .admintabs { overflow-x:auto; scrollbar-width:none; }
 .admintabs::-webkit-scrollbar { display:none; }
 .admintabs button { white-space:nowrap; padding-left:14px; padding-right:14px; }
+
+/* desktop: kolom tanggal/bulan tanpa blok biru pada angka yang aktif - cukup garis tepi kolom */
+@media (hover: hover) and (pointer: fine) {
+  input[type=date]::-webkit-datetime-edit-day-field:focus,
+  input[type=date]::-webkit-datetime-edit-month-field:focus,
+  input[type=date]::-webkit-datetime-edit-year-field:focus,
+  input[type=month]::-webkit-datetime-edit-month-field:focus,
+  input[type=month]::-webkit-datetime-edit-year-field:focus {
+    background: transparent; color: inherit; outline: none;
+  }
+  input[type=date], input[type=month] { caret-color: transparent; }
+  input[type=date]:focus, input[type=month]:focus { outline: 2px solid var(--aksen); outline-offset: -1px; }
+}
