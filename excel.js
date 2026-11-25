@@ -73,6 +73,27 @@
     });
   }
 
+  // kolom label "NAMA / NIK / ..." di kanan atas (TOILET = Z, lainnya = Y)
+  function kolLabel(ws, gab) {
+    for (var r = 2; r <= 3; r++) {
+      for (var c = 20; c <= 32; c++) {
+        var v = ws.getCell(r, c).value;
+        if (typeof v === 'string' && v.trim().toUpperCase().indexOf('NAMA') === 0) return c;
+      }
+    }
+    // cadangan: kolom tepat setelah kotak judul (gabungan yang mulai di D2)
+    var j = (gab || daftarMerge(ws)).filter(function (m) { return m.top === 2 && m.left === 4; })[0];
+    return j ? j.right + 1 : 25;
+  }
+
+  // ruangan/kategori baru (tidak punya template sendiri): judul & label disesuaikan, bukan "TOILET"
+  function judulKategori(ws, kategori) {
+    var nama = String(kategori || '').replace(/\s+\d+$/, '').replace(/\s+/g, ' ').trim().toUpperCase();
+    if (!nama) return;
+    ws.getCell(2, 4).value = 'CHECKLIST KEBERSIHAN ' + nama + '\nPPPK BPS PROVINSI KEPULAUAN BANGKA BELITUNG';
+    ws.getCell(4, kolLabel(ws)).value = 'RUANG';          // label sebelum "LANTAI"
+  }
+
   // cari baris pekerjaan (kolom A angka), baris paraf, dan baris akhir
   function pindai(ws) {
     var o = { tugas: [], petugas: 0, pengawas: 0, akhir: 0 };
@@ -198,6 +219,21 @@
     }
   }
 
+  // kotak: garis tepi luar saja (dipaksa penuh), isi dalam dibiarkan
+  function kotak(ws, r1, r2, c1, c2) {
+    for (var r = r1; r <= r2; r++) {
+      for (var c = c1; c <= c2; c++) {
+        var cell = ws.getCell(r, c);
+        var b = Object.assign({}, cell.border || {});
+        if (r === r1) b.top = { style: 'thin' };
+        if (r === r2) b.bottom = { style: 'thin' };
+        if (c === c1) b.left = { style: 'thin' };
+        if (c === c2) b.right = { style: 'thin' };
+        cell.border = b;
+      }
+    }
+  }
+
   function calibri(f) {
     var o = Object.assign({}, f || {}, { name: 'Calibri', family: 2 });
     delete o.scheme;
@@ -206,7 +242,15 @@
 
   function rapikan(ws) {
     var gab = daftarMerge(ws);
+    var lc = kolLabel(ws, gab);                       // kolom label NAMA (sebelum sel dilepas)
     lepasSemua(ws);                                   // kerja di sel biasa dulu, gabungkan lagi di akhir
+
+    // 0) kepala (baris 2-6): semua garis tepi dibuat penuh, tidak ada yang putus
+    kotak(ws, 2, 6, 1, 3);                            // logo + nama instansi
+    kotak(ws, 2, 5, 4, lc - 1);                       // judul
+    kotak(ws, 2, 5, lc, 34);                          // NAMA / NIK / RUANG / LANTAI
+    kotak(ws, 6, 6, 4, 34);                           // "CHECKLIST KETUNTASAN KEGIATAN PER-HARI"
+    ws.getRow(6).height = 33;                         // tinggi baris 6 selalu 33
 
     // 1) tabel utama: dari baris judul kolom sampai paraf pengawas, kolom A..AH
     var s = pindai(ws);
@@ -248,7 +292,7 @@
     ]).then(function (hasil) {
       var rows = hasil[1].rows || [];
       return wb.xlsx.load(hasil[0]).then(function () {
-        var pasangan = [];   // { ws, a (data area) }
+        var pasangan = [];   // { ws, a (data area), baruKat }
         var terpakai = {};   // id sheet yang sudah dipasangkan
         var sudah = {};      // nama area yang sudah punya sheet
 
@@ -269,14 +313,21 @@
         cocokkan(function (w, a) { return kunci(a.Area).slice(0, 31) === kunci(namaArea(w)); });
         cocokkan(function (w, a) { return kunci(pendek(namaArea(w))) === kunci(pendek(a.Area)); });
 
-        // 2) ruangan/slot yang belum punya sheet -> klon sheet sejenis
+        // 2) ruangan/slot yang belum punya sheet -> klon sheet sejenis.
+        //    Kategori yang belum punya template sama sekali (ruangan baru dari admin) memakai
+        //    bentuk RUANG KERJA (bukan TOILET); judul & label disesuaikan di langkah 4.
         R.M.area.forEach(function (a) {
           if (sudah[a.Area]) return;
           var proto = pasangan.filter(function (x) { return x.a.Kategori === a.Kategori; })[0];
+          var baruKat = proto ? !!proto.baruKat : true;
+          if (!proto) {
+            proto = pasangan.filter(function (x) { return x.a.Kategori === 'RUANG KERJA'; })[0]
+              || pasangan.filter(function (x) { return !/TOILET/i.test(x.a.Kategori); })[0];
+          }
           var src = proto ? proto.ws : wb.worksheets[0];
           if (!src) return;
           sudah[a.Area] = 1;
-          pasangan.push({ ws: klonSheet(wb, src), a: a });
+          pasangan.push({ ws: klonSheet(wb, src), a: a, baruKat: baruKat });
         });
 
         // 3) buang sheet yang tidak dipakai / bukan milik petugas terpilih, isi sisanya
@@ -298,8 +349,9 @@
           x.nama = namaUnik(x.a.Area, dipakai);
           x.ws.name = x.nama;
           perbaruiJudul(x.ws, x.nama);
+          if (x.baruKat) judulKategori(x.ws, x.a.Kategori || x.a.Area);   // judul + label "RUANG" untuk ruangan baru
           isiSheet(x.ws, x.a.Area, x.rA, ym, x.names);
-          rapikan(x.ws);                       // garis tabel + font Calibri
+          rapikan(x.ws);                       // garis kepala & tabel + tinggi baris 6 + font Calibri
         });
         return wb.xlsx.writeBuffer();
       });
