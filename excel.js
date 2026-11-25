@@ -7,7 +7,6 @@
   function kunci(s) { return String(s || '').toUpperCase().replace(/\s+/g, ' ').replace(/[\s.]+$/, '').trim(); }
 
   // Nama pendek untuk di Excel: buang keterangan dalam kurung.
-  // 'RUANG PELAYANAN UMUM (PST, PPID, ...)' -> 'RUANG PELAYANAN UMUM'
   function pendek(s) {
     var t = String(s || '').replace(/\s*\(.*$/, '').replace(/[\[\]:*?\/\\]/g, ' ').replace(/\s+/g, ' ').trim();
     return t || String(s || '').slice(0, 31);
@@ -31,6 +30,23 @@
       .sort(function (a, b) { return a.tanggal < b.tanggal ? -1 : 1; })
       .forEach(function (x) { if (n.indexOf(x.oleh) < 0) n.push(x.oleh); });
     return n.length ? n : (sekarang ? [sekarang] : []);
+  }
+
+  // ---------- util sel gabungan (merge) ----------
+  function kolNo(s) { var n = 0; for (var i = 0; i < s.length; i++) n = n * 26 + s.charCodeAt(i) - 64; return n; }
+  function parseRange(a) {
+    var m = String(a).match(/^\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/);
+    return m ? { left: kolNo(m[1]), top: +m[2], right: kolNo(m[3]), bottom: +m[4] } : null;
+  }
+  function gabung(ws, r) {
+    if (ws.mergeCellsWithoutStyle) ws.mergeCellsWithoutStyle(r.top, r.left, r.bottom, r.right);
+    else ws.mergeCells(r.top, r.left, r.bottom, r.right);
+  }
+  function daftarMerge(ws) {
+    return (ws.model.merges || []).map(parseRange).filter(Boolean);
+  }
+  function lepasSemua(ws) {
+    (ws.model.merges || []).slice().forEach(function (m) { ws.unMergeCells(m); });
   }
 
   // gandakan sheet ruangan sejenis untuk slot/ruangan baru (nama sementara, diganti di akhir)
@@ -72,8 +88,23 @@
     return o;
   }
 
+  // tambah baris pekerjaan TANPA merusak sel gabungan (bagian paraf, keterangan, tanda tangan)
+  function tambahBaris(ws, src, tambah) {
+    var asli = daftarMerge(ws);
+    lepasSemua(ws);
+    ws.duplicateRow(src, tambah, true);
+    asli.forEach(function (r) {
+      var b = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+      if (b.top > src) { b.top += tambah; b.bottom += tambah; }
+      else if (b.bottom > src) { b.bottom += tambah; }
+      gabung(ws, b);
+      if (r.top === src && r.bottom === src) {            // gabungan di baris pekerjaan -> ikut ke baris baru
+        for (var i = 1; i <= tambah; i++) gabung(ws, { left: r.left, right: r.right, top: src + i, bottom: src + i });
+      }
+    });
+  }
+
   // blok tanda tangan: jabatan (baris b), instansi (b+1), nama (b+3), NIP (b+4)
-  // kolom kiri->kanan sesuai template: jabatan B,C,D; sisanya A,C,D
   function isiPejabat(ws, b) {
     var pj = (R.M.pejabat || []).slice(0, 3);
     var kolJab = [2, 3, 4], kolLain = [1, 3, 4];
@@ -96,9 +127,9 @@
     function kolHari(d) { return 3 + d; }                         // hari 1 = kolom D
 
     var s = pindai(ws);
-    // pekerjaan lebih banyak dari baris template -> tambah baris otomatis (gaya disalin)
+    // pekerjaan lebih banyak dari baris template -> tambah baris (sel gabungan dijaga)
     if (s.tugas.length && tugas.length > s.tugas.length) {
-      ws.duplicateRow(s.tugas[s.tugas.length - 1], tugas.length - s.tugas.length, true);
+      tambahBaris(ws, s.tugas[s.tugas.length - 1], tugas.length - s.tugas.length);
       s = pindai(ws);
     }
     s.tugas.forEach(function (r, i) { if (i < tugas.length) ws.getCell(r, 1).value = i + 1; });
@@ -152,6 +183,60 @@
         break;
       }
     }
+  }
+
+  // ---------- perapihan akhir: garis tabel + font Calibri ----------
+  function garis(ws, r1, r2, c1, c2) {
+    var sisi = ['top', 'left', 'bottom', 'right'];
+    for (var r = r1; r <= r2; r++) {
+      for (var c = c1; c <= c2; c++) {
+        var cell = ws.getCell(r, c);
+        var b = Object.assign({}, cell.border || {});
+        sisi.forEach(function (k) { if (!b[k]) b[k] = { style: 'thin' }; });
+        cell.border = b;
+      }
+    }
+  }
+
+  function calibri(f) {
+    var o = Object.assign({}, f || {}, { name: 'Calibri', family: 2 });
+    delete o.scheme;
+    return o;
+  }
+
+  function rapikan(ws) {
+    var gab = daftarMerge(ws);
+    lepasSemua(ws);                                   // kerja di sel biasa dulu, gabungkan lagi di akhir
+
+    // 1) tabel utama: dari baris judul kolom sampai paraf pengawas, kolom A..AH
+    var s = pindai(ws);
+    var akhir = s.pengawas || s.petugas || s.akhir;
+    if (akhir) garis(ws, 7, akhir, 1, 34);
+
+    // 2) tabel keterangan (X / PAGI / SIANG / SORE), kolom A..C
+    var ketemu = false;
+    for (var r = (akhir || 9) + 1; r <= ws.rowCount && !ketemu; r++) {
+      for (var c = 1; c <= 3; c++) {
+        var v = ws.getCell(r, c).value;
+        if (typeof v === 'string' && v.trim().toUpperCase().indexOf('KETERANGAN') === 0) {
+          garis(ws, r, r + 4, 1, 3); ketemu = true; break;
+        }
+      }
+    }
+
+    // 3) semua font -> Calibri
+    ws.eachRow({ includeEmpty: true }, function (row) {
+      row.eachCell({ includeEmpty: true }, function (cell) {
+        var v = cell.value;
+        if (v && typeof v === 'object' && v.richText) {
+          cell.value = { richText: v.richText.map(function (rt) { return { text: rt.text, font: calibri(rt.font) }; }) };
+        }
+        if (cell.font || (cell.value !== null && cell.value !== undefined && cell.value !== '')) cell.font = calibri(cell.font);
+      });
+    });
+
+    // 4) gabungkan kembali
+    gab.forEach(function (r) { gabung(ws, r); });
   }
 
   // ym = '2026-03', petugas = '' (semua) atau nama petugas
@@ -214,6 +299,7 @@
           x.ws.name = x.nama;
           perbaruiJudul(x.ws, x.nama);
           isiSheet(x.ws, x.a.Area, x.rA, ym, x.names);
+          rapikan(x.ws);                       // garis tabel + font Calibri
         });
         return wb.xlsx.writeBuffer();
       });
