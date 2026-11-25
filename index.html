@@ -8,6 +8,7 @@
   <title>RAPIH1900</title>
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="lapor.css">
 </head>
 <body>
   <header class="topbar">
@@ -20,27 +21,38 @@
     <button id="logoBtn" class="logo" title="Admin"><picture><source media="(min-width: 900px), (prefers-color-scheme: dark)" srcset="logobpsw.png"><img id="logoImg" alt="BPS"></picture><span id="logoTeks" hidden>BPS</span></button>
   </div>
 
+  <!-- Menu utama -->
+  <nav class="menu">
+    <button type="button" data-v="harian" class="active">✅ Ceklis Harian</button>
+    <button type="button" data-v="lapor">🛠 Lapor Kerusakan</button>
+  </nav>
+
   <main>
     <!-- Halaman PPPK -->
-    <section class="card pilih">
-      <label>Nama <select id="selNama"></select></label>
-      <label>Tanggal <input type="date" id="selTanggal"></label>
-    </section>
-    <div id="pesan" class="pesan"></div>
-    <nav id="tabArea" class="tabarea"></nav>
-    <section id="panel" hidden>
-      <div class="statusbar"><b id="pgs"></b><span id="simpanStatus"></span></div>
-      <label class="check libur"><span>Libur (X)</span><input type="checkbox" id="chkLibur"></label>
-      <div id="daftar" class="daftar"></div>
-      <div class="card foto">
-        <b>Foto bukti</b>
-        <div class="fotoaksi">
-          <label class="btnfoto">📷 Kamera<input type="file" id="inKamera" accept="image/*" capture="environment" hidden></label>
-          <label class="btnfoto alt">🖼 Galeri / File<input type="file" id="inFoto" accept="image/*" hidden></label>
+    <div id="v-harian">
+      <section class="card pilih">
+        <label>Nama <select id="selNama"></select></label>
+        <label>Tanggal <input type="date" id="selTanggal"></label>
+      </section>
+      <div id="pesan" class="pesan"></div>
+      <nav id="tabArea" class="tabarea"></nav>
+      <section id="panel" hidden>
+        <div class="statusbar"><b id="pgs"></b><span id="simpanStatus"></span></div>
+        <label class="check libur"><span>Libur (X)</span><input type="checkbox" id="chkLibur"></label>
+        <div id="daftar" class="daftar"></div>
+        <div class="card foto">
+          <b>Foto bukti</b>
+          <div class="fotoaksi">
+            <label class="btnfoto">📷 Kamera<input type="file" id="inKamera" accept="image/*" capture="environment" hidden></label>
+            <label class="btnfoto alt">🖼 Galeri / File<input type="file" id="inFoto" accept="image/*" hidden></label>
+          </div>
+          <div id="fotoList" class="fotolist"></div>
         </div>
-        <div id="fotoList" class="fotolist"></div>
-      </div>
-    </section>
+      </section>
+    </div>
+
+    <!-- Halaman Lapor Kerusakan (diisi oleh lapor.js) -->
+    <div id="v-lapor" hidden></div>
   </main>
 
   <!-- Dialog password admin -->
@@ -59,12 +71,14 @@
     <nav class="admintabs">
       <button data-at="petugas" class="active">Petugas</button>
       <button data-at="tugas">Tugas</button>
+      <button data-at="laporan">Laporan</button>
       <button data-at="pejabat">Pejabat TTD</button>
       <button data-at="unduh">Unduh Excel</button>
     </nav>
     <div class="adminbody">
       <section id="at-petugas"></section>
       <section id="at-tugas" hidden></section>
+      <section id="at-laporan" hidden></section>
       <section id="at-pejabat" hidden></section>
       <section id="at-unduh" hidden></section>
     </div>
@@ -75,6 +89,7 @@
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script src="excel.js"></script>
+  <script src="lapor.js"></script>
   <script src="admin.js"></script>
   <script>
     // foto dari kamera -> diteruskan ke handler yang sama dengan Galeri/File

@@ -1,7 +1,28 @@
 /* RAPIH1900 - pembuat Excel dari template.xlsx (format sama seperti file acuan). */
 (function () {
   var R = window.R;
+
+  // ---------- nama area ----------
   function namaArea(ws) { return ws.name.replace(/[\s.]+$/, ''); }   // 'MOBIL KEPALA.' -> 'MOBIL KEPALA'
+  function kunci(s) { return String(s || '').toUpperCase().replace(/\s+/g, ' ').replace(/[\s.]+$/, '').trim(); }
+
+  // Nama pendek untuk di Excel: buang keterangan dalam kurung.
+  // 'RUANG PELAYANAN UMUM (PST, PPID, ...)' -> 'RUANG PELAYANAN UMUM'
+  function pendek(s) {
+    var t = String(s || '').replace(/\s*\(.*$/, '').replace(/[\[\]:*?\/\\]/g, ' ').replace(/\s+/g, ' ').trim();
+    return t || String(s || '').slice(0, 31);
+  }
+
+  // nama sheet unik (maks 31 huruf, tidak boleh kembar)
+  function namaUnik(dasar, dipakai) {
+    var base = pendek(dasar).slice(0, 31), nama = base, n = 2;
+    while (dipakai[nama.toUpperCase()]) {
+      var suf = ' ' + n++;
+      nama = base.slice(0, 31 - suf.length) + suf;
+    }
+    dipakai[nama.toUpperCase()] = 1;
+    return nama;
+  }
 
   // petugas yang benar-benar mengisi slot itu pada bulan tersebut (urut tanggal); kosong -> pemegang sekarang
   function pemilikBulan(rows, sekarang) {
@@ -12,17 +33,28 @@
     return n.length ? n : (sekarang ? [sekarang] : []);
   }
 
-  // gandakan sheet ruangan sejenis untuk slot/ruangan baru
-  function klonSheet(wb, src, nama) {
-    var ns = wb.addWorksheet(nama.slice(0, 31));
+  // gandakan sheet ruangan sejenis untuk slot/ruangan baru (nama sementara, diganti di akhir)
+  var seq = 0;
+  function klonSheet(wb, src) {
+    var ns = wb.addWorksheet('~klon' + (++seq));
     var m = JSON.parse(JSON.stringify(src.model));
     m.name = ns.name; m.mergeCells = src.model.merges;
     ns.model = m;
-    var lama = namaArea(src);
-    for (var r = 1; r <= 8; r++) ns.getRow(r).eachCell(function (c) {
-      if (typeof c.value === 'string' && c.value.indexOf(lama) >= 0) c.value = c.value.split(lama).join(nama);
-    });
+    ns._lama = (src._lama || []).slice();
     return ns;
+  }
+
+  // ganti teks nama ruangan lama di judul sheet (baris 1-8) dengan nama pendek yang baru
+  function perbaruiJudul(ws, namaBaru) {
+    var daftar = (ws._lama || []).filter(Boolean);
+    for (var r = 1; r <= 8; r++) ws.getRow(r).eachCell(function (c) {
+      if (typeof c.value !== 'string') return;
+      for (var i = 0; i < daftar.length; i++) {
+        var lp = pendek(daftar[i]).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        var re = new RegExp(lp + '(\\s*\\([^)]*(\\)|$))?', 'i');
+        if (re.test(c.value)) { c.value = c.value.replace(re, namaBaru); break; }
+      }
+    });
   }
 
   // cari baris pekerjaan (kolom A angka), baris paraf, dan baris akhir
@@ -131,28 +163,58 @@
     ]).then(function (hasil) {
       var rows = hasil[1].rows || [];
       return wb.xlsx.load(hasil[0]).then(function () {
-        var ada = {};
-        wb.worksheets.forEach(function (ws) { ada[namaArea(ws)] = ws; });
+        var pasangan = [];   // { ws, a (data area) }
+        var terpakai = {};   // id sheet yang sudah dipasangkan
+        var sudah = {};      // nama area yang sudah punya sheet
 
-        // ruangan/slot yang belum punya sheet di template -> klon sheet sejenis
+        wb.worksheets.forEach(function (ws) { ws._lama = [namaArea(ws)]; });
+
+        // 1) cocokkan sheet template dengan area (nama lengkap, terpotong 31 huruf, atau nama pendek)
+        function cocokkan(tes) {
+          R.M.area.forEach(function (a) {
+            if (sudah[a.Area]) return;
+            var ws = wb.worksheets.filter(function (w) { return !terpakai[w.id] && tes(w, a); })[0];
+            if (!ws) return;
+            terpakai[ws.id] = 1; sudah[a.Area] = 1;
+            ws._lama.push(a.Area);
+            pasangan.push({ ws: ws, a: a });
+          });
+        }
+        cocokkan(function (w, a) { return kunci(namaArea(w)) === kunci(a.Area); });
+        cocokkan(function (w, a) { return kunci(a.Area).slice(0, 31) === kunci(namaArea(w)); });
+        cocokkan(function (w, a) { return kunci(pendek(namaArea(w))) === kunci(pendek(a.Area)); });
+
+        // 2) ruangan/slot yang belum punya sheet -> klon sheet sejenis
         R.M.area.forEach(function (a) {
-          if (ada[a.Area]) return;
-          var proto = R.M.area.filter(function (x) { return x.Kategori === a.Kategori && ada[x.Area]; })[0];
-          var src = proto ? ada[proto.Area] : wb.worksheets[0];
-          if (src) ada[a.Area] = klonSheet(wb, src, a.Area);
+          if (sudah[a.Area]) return;
+          var proto = pasangan.filter(function (x) { return x.a.Kategori === a.Kategori; })[0];
+          var src = proto ? proto.ws : wb.worksheets[0];
+          if (!src) return;
+          sudah[a.Area] = 1;
+          pasangan.push({ ws: klonSheet(wb, src), a: a });
         });
 
-        var buang = [];
-        wb.worksheets.slice().forEach(function (ws) {
-          var area = namaArea(ws), a = R.areaDari(area);
-          if (!a) { buang.push(ws.id); return; }
-          var rA = rows.filter(function (x) { return x.area === area; });
-          var names = pemilikBulan(rA, a.Petugas);
-          if (petugas && names.indexOf(petugas) < 0) buang.push(ws.id);
-          else isiSheet(ws, area, rA, ym, names);
+        // 3) buang sheet yang tidak dipakai / bukan milik petugas terpilih, isi sisanya
+        var simpanSheet = [];
+        var buang = wb.worksheets.filter(function (ws) { return !pasangan.some(function (x) { return x.ws === ws; }); });
+        pasangan.forEach(function (x) {
+          var rA = rows.filter(function (r) { return r.area === x.a.Area; });
+          var names = pemilikBulan(rA, x.a.Petugas);
+          if (petugas && names.indexOf(petugas) < 0) { buang.push(x.ws); return; }
+          x.names = names; x.rA = rA; simpanSheet.push(x);
         });
-        buang.forEach(function (id) { wb.removeWorksheet(id); });
-        if (!wb.worksheets.length) throw new Error('Tidak ada ruangan untuk dipilih');
+        buang.forEach(function (ws) { wb.removeWorksheet(ws.id); });
+        if (!simpanSheet.length) throw new Error('Tidak ada ruangan untuk dipilih');
+
+        // 4) beri nama sheet pendek & unik (lewat nama sementara supaya tidak bentrok)
+        simpanSheet.forEach(function (x, i) { x.ws.name = '~tmp' + i; });
+        var dipakai = {};
+        simpanSheet.forEach(function (x) {
+          x.nama = namaUnik(x.a.Area, dipakai);
+          x.ws.name = x.nama;
+          perbaruiJudul(x.ws, x.nama);
+          isiSheet(x.ws, x.a.Area, x.rA, ym, x.names);
+        });
         return wb.xlsx.writeBuffer();
       });
     }).then(function (buffer) {

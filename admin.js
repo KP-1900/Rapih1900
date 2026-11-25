@@ -16,12 +16,12 @@
   };
   $('adminTutup').onclick = function () { $('admin').hidden = true; pass = ''; R.refreshNama(); };
 
-  function buka() { $('admin').hidden = false; tab('petugas'); }
+  function buka() { $('admin').hidden = false; tab('petugas'); hitungLaporan(); }
   document.querySelectorAll('.admintabs button').forEach(function (b) { b.onclick = function () { tab(b.dataset.at); }; });
   function tab(t) {
     document.querySelectorAll('.admintabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.at === t); });
-    ['petugas', 'tugas', 'pejabat', 'unduh'].forEach(function (x) { $('at-' + x).hidden = x !== t; });
-    ({ petugas: viewPetugas, tugas: viewTugas, pejabat: viewPejabat, unduh: viewUnduh })[t]();
+    ['petugas', 'tugas', 'laporan', 'pejabat', 'unduh'].forEach(function (x) { $('at-' + x).hidden = x !== t; });
+    ({ petugas: viewPetugas, tugas: viewTugas, laporan: viewLaporan, pejabat: viewPejabat, unduh: viewUnduh })[t]();
   }
   function post(body) { body.adminPin = pass; return R.apiPost(body); }
 
@@ -135,6 +135,52 @@
     }
     gambar();
     box.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ---------- laporan kerusakan: tinjau, ubah status, tulis tindak lanjut ----------
+  var STATUS = ['Baru', 'Diproses', 'Selesai'];
+  function labelTabLaporan(n) {
+    var b = document.querySelector('.admintabs [data-at="laporan"]');
+    if (b) b.textContent = n > 0 ? 'Laporan (' + n + ')' : 'Laporan';
+  }
+  function hitungLaporan() {     // angka laporan yang belum selesai di tab admin
+    R.apiGet({ action: 'laporan' }).then(function (r) {
+      if (r.ok) labelTabLaporan((r.rows || []).filter(function (x) { return x.status !== 'Selesai'; }).length);
+    }).catch(function () {});
+  }
+  function viewLaporan() {
+    var box = $('at-laporan');
+    box.innerHTML = '<div class="pesan">Memuat laporan...</div>';
+    R.apiGet({ action: 'laporan' }).then(function (r) {
+      if (!r.ok) throw new Error(r.error);
+      var list = (r.rows || []).slice().sort(function (a, b) { return (a.status === 'Selesai' ? 1 : 0) - (b.status === 'Selesai' ? 1 : 0); });   // belum selesai di atas
+      var buka = list.filter(function (x) { return x.status !== 'Selesai'; }).length;
+      labelTabLaporan(buka);
+      var h = '<div class="pesan"><b>' + buka + '</b> laporan belum selesai dari ' + list.length + ' laporan.</div>';
+      if (!list.length) h = '<div class="pesan">Belum ada laporan kerusakan.</div>';
+      list.forEach(function (x) {
+        h += '<div class="lapadm" data-id="' + esc(x.id) + '">' + R.kartuLaporan(Object.assign({}, x, { tindak: '' })) +
+          '<div class="card form"><label>Status<select data-st>' + STATUS.map(function (s) { return '<option' + (s === x.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
+          '<label>Tindak lanjut / catatan<textarea data-tl rows="2" maxlength="500" placeholder="mis. Sudah dihubungi teknisi, perbaikan Jumat">' + esc(x.tindak) + '</textarea></label>' +
+          '<div class="baris"><button type="button" class="ghost bahaya" data-hapus>Hapus</button><button type="button" class="primary" data-simpan>Simpan</button></div></div></div>';
+      });
+      box.innerHTML = h;
+      box.querySelectorAll('.lapadm').forEach(function (el) {
+        var id = el.dataset.id;
+        el.querySelector('[data-simpan]').onclick = function () {
+          var btn = this; btn.disabled = true;
+          post({ action: 'laporanStatus', id: id, status: el.querySelector('[data-st]').value, tindak: el.querySelector('[data-tl]').value })
+            .then(function (r) { if (!r.ok) throw new Error(r.error); R.toast('✔ Tersimpan'); viewLaporan(); })
+            .catch(function (e) { R.toast('❌ ' + e.message); btn.disabled = false; });
+        };
+        el.querySelector('[data-hapus]').onclick = function () {
+          if (!confirm('Hapus laporan ini beserta fotonya? Tidak bisa dibatalkan.')) return;
+          post({ action: 'laporanHapus', id: id })
+            .then(function (r) { if (!r.ok) throw new Error(r.error); R.toast('✔ Dihapus'); viewLaporan(); })
+            .catch(function (e) { R.toast('❌ ' + e.message); });
+        };
+      });
+    }).catch(function (e) { box.innerHTML = '<div class="pesan">❌ ' + esc(e.message || 'Gagal memuat') + '</div>'; });
   }
 
   // ---------- pejabat penandatangan (Master_Pejabat; tampil di bagian TTD Excel) ----------

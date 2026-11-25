@@ -1,0 +1,57 @@
+/* RAPIH1900 - tampilan menu Lapor Kerusakan (memakai variabel warna dari style.css) */
+
+/* menu atas: Ceklis Harian | Lapor Kerusakan */
+.menu { display:grid; grid-template-columns:1fr 1fr; gap:8px; max-width:760px; margin:10px auto 0; padding:0 14px; }
+.menu button { padding:12px 8px; font-size:15px; font-weight:600; border-radius:14px; background:var(--kartu); color:var(--teks); box-shadow:0 1px 3px var(--shadow); }
+.menu button.active { background:var(--biru); color:#fff; border-color:var(--biru); box-shadow:0 2px 6px #0b5ea866; }
+@media (min-width: 900px) { .menu { max-width:1100px; padding:0 24px; } }
+
+/* form laporan */
+.lapform small.sub { color:var(--muted); font-size:13px; line-height:1.4; }
+.lapform textarea { width:100%; resize:vertical; min-height:96px; }
+.lblteks { font-size:13px; font-weight:500; color:var(--sub); margin-top:2px; }
+.lblteks small { font-weight:400; color:var(--muted); }
+.prio { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.prio button { padding:10px 6px; font-weight:600; border-radius:12px; }
+.prio button.on[data-p="Ringan"] { background:#2fb36a; color:#fff; border-color:#2fb36a; }
+.prio button.on[data-p="Sedang"] { background:#e0a100; color:#fff; border-color:#e0a100; }
+.prio button.on[data-p="Mendesak"] { background:var(--bad); color:#fff; border-color:var(--bad); }
+#lapKirim { margin-top:4px; padding:13px; font-size:16px; }
+#lapKirim:disabled { opacity:.6; }
+
+/* foto */
+.lapfoto { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.lapfoto img { max-height:150px; max-width:100%; border-radius:10px; display:block; border:1px solid var(--garis); }
+.lapfoto a { display:block; }
+
+/* daftar laporan */
+.lapbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; margin:18px 2px 4px; }
+.chips { display:flex; gap:6px; flex-wrap:wrap; }
+.chips button { padding:6px 12px; font-size:13px; border-radius:999px; }
+.chips button.on { background:var(--biru); color:#fff; border-color:var(--biru); }
+.lap { background:var(--kartu); border:1px solid var(--garis); border-left:5px solid var(--kotak); border-radius:14px; padding:12px 14px; margin-top:10px; box-shadow:0 1px 3px var(--shadow); }
+.lap.p-Ringan { border-left-color:#2fb36a; }
+.lap.p-Sedang { border-left-color:#e0a100; }
+.lap.p-Mendesak { border-left-color:var(--bad); }
+.lap.telat { background:color-mix(in srgb, var(--bad) 8%, var(--kartu)); }
+.laphead { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+.lapmeta { color:var(--muted); font-size:12.5px; margin:3px 0 6px; line-height:1.4; }
+.lap p { margin:6px 0; font-size:14.5px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+.pr { font-weight:700; }
+.pr.p-Ringan { color:#2fb36a; } .pr.p-Sedang { color:#c08a00; } .pr.p-Mendesak { color:var(--bad); }
+.umur { color:var(--bad); font-weight:600; }
+.badge { flex:none; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; color:#fff; }
+.badge.s-Baru { background:var(--bad); }
+.badge.s-Diproses { background:#e0a100; }
+.badge.s-Selesai { background:var(--ok); }
+.laptindak { background:var(--abu); border-radius:10px; padding:8px 10px; font-size:13.5px; margin-top:8px; line-height:1.4; }
+
+/* admin: kartu laporan yang bisa diubah */
+.lapadm .form { margin-top:8px; }
+.lapadm select, .lapadm textarea { width:100%; }
+.lapadm .baris { justify-content:space-between; }
+
+/* tab admin bisa digeser bila sempit */
+.admintabs { overflow-x:auto; scrollbar-width:none; }
+.admintabs::-webkit-scrollbar { display:none; }
+.admintabs button { white-space:nowrap; padding-left:14px; padding-right:14px; }
