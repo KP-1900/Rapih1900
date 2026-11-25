@@ -243,12 +243,16 @@
   function rapikan(ws) {
     var gab = daftarMerge(ws);
     var lc = kolLabel(ws, gab);                       // kolom label NAMA (sebelum sel dilepas)
+    // kotak logo/instansi selalu satu gabungan A2:C6 (seperti sheet TOILET)
+    gab = gab.filter(function (m) { return !(m.left === 1 && m.right === 3 && m.top >= 2 && m.bottom <= 6); });
+    gab.push({ left: 1, right: 3, top: 2, bottom: 6 });
     lepasSemua(ws);                                   // kerja di sel biasa dulu, gabungkan lagi di akhir
 
     // 0) kepala (baris 2-6): semua garis tepi dibuat penuh, tidak ada yang putus
     kotak(ws, 2, 6, 1, 3);                            // logo + nama instansi
     kotak(ws, 2, 5, 4, lc - 1);                       // judul
     kotak(ws, 2, 5, lc, 34);                          // NAMA / NIK / RUANG / LANTAI
+    for (var ri = 2; ri <= 5; ri++) kotak(ws, ri, ri, lc, 34);   // garis pemisah tiap baris NAMA/NIK/RUANG/LANTAI, penuh sampai kanan
     kotak(ws, 6, 6, 4, 34);                           // "CHECKLIST KETUNTASAN KEGIATAN PER-HARI"
     ws.getRow(6).height = 33;                         // tinggi baris 6 selalu 33
 
