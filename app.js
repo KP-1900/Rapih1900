@@ -64,9 +64,17 @@
   var data = {};            // area (slot) -> catatan hari itu
   var aktif = null;         // slot yang sedang dibuka
   var antrean = Promise.resolve();
+  var BATAS_KUNCI = 10000;  // ceklis bisa dibatalkan 10 detik, setelah itu TERKUNCI
+  var timerKunci = null;
 
   function areaSaya() { return R.M.area.filter(function (a) { return a.Petugas === $('selNama').value; }); }
-  function recBaru() { return { tugas: [], libur: false, parafPetugas: false, catatan: '', foto: [] }; }
+  // waktu[i] = kapan ceklis ke-i diberi centang (ms, jam perangkat). 0 / kosong = sudah lama (terkunci).
+  function recBaru() { return { tugas: [], waktu: [], libur: false, parafPetugas: false, catatan: '', foto: [] }; }
+
+  // ceklis terkunci bila sudah dicentang >= 10 detik
+  function terkunci(d, i) {
+    return d.tugas[i] === 'V' && (Date.now() - (d.waktu[i] || 0)) >= BATAS_KUNCI;
+  }
 
   function isiNama() {
     var pil = localStorage.getItem('rapih_nama') || '';
@@ -85,7 +93,14 @@
     R.apiGet({ action: 'bulan', ym: tgl.slice(0, 7) }).then(function (r) {
       data = {};
       areas.forEach(function (a) { data[a.Area] = recBaru(); });
-      (r.rows || []).forEach(function (x) { if (x.tanggal === tgl && data[x.area]) data[x.area] = Object.assign(recBaru(), x, { foto: (x.foto || []).map(function (u) { return { url: u, t: 0 }; }) }); });
+      var sekarang = Date.now();
+      (r.rows || []).forEach(function (x) {
+        if (x.tanggal === tgl && data[x.area]) {
+          data[x.area] = Object.assign(recBaru(), x, { foto: (x.foto || []).map(function (u) { return { url: u, t: 0 }; }) });
+          // umur ceklis dari server (ms) -> waktu centang di jam perangkat ini
+          data[x.area].waktu = (x.umur || []).map(function (u) { return u >= 0 ? sekarang - u : 0; });
+        }
+      });
       $('pesan').textContent = '';
       if (!aktif || !data[aktif]) aktif = areas[0].Area;
       gambarTab(); bukaArea(aktif);
@@ -105,6 +120,23 @@
     $('tabArea').querySelectorAll('button').forEach(function (b) { b.onclick = function () { bukaArea(b.dataset.a); }; });
   }
 
+  // pasang status kunci ke semua kotak ceklis + jadwalkan pengunci otomatis
+  function jadwalKunci() {
+    clearTimeout(timerKunci);
+    var d = data[aktif]; if (!d) return;
+    var now = Date.now(), sisa = 0;
+    $('daftar').querySelectorAll('input').forEach(function (c) {
+      var i = +c.dataset.i, k = terkunci(d, i);
+      c.disabled = k;
+      c.closest('.task').classList.toggle('terkunci', k);
+      if (d.tugas[i] === 'V' && !k) {
+        var s = BATAS_KUNCI - (now - (d.waktu[i] || 0));
+        if (s > 0) sisa = sisa ? Math.min(sisa, s) : s;
+      }
+    });
+    if (sisa) { var area = aktif; timerKunci = setTimeout(function () { if (aktif === area) jadwalKunci(); }, sisa + 50); }
+  }
+
   function bukaArea(area) {
     aktif = area;
     var tugas = R.tugasArea(area), d = data[area];
@@ -116,11 +148,19 @@
         R.esc(t.Pekerjaan) + '<small>' + R.esc(t.Standar) + '</small></span></label>';
     }).join('');
     $('daftar').querySelectorAll('input').forEach(function (c) {
-      c.onchange = function () { d.tugas[+c.dataset.i] = c.checked ? 'V' : ''; berubah(); };
+      c.onchange = function () {
+        var i = +c.dataset.i;
+        if (c.checked) { d.tugas[i] = 'V'; d.waktu[i] = Date.now(); }
+        else {
+          if (terkunci(d, i)) { c.checked = true; R.toast('🔒 Ceklis sudah terkunci'); return; }
+          d.tugas[i] = ''; d.waktu[i] = 0;
+        }
+        berubah(); jadwalKunci();
+      };
     });
     tampilFoto();
     $('simpanStatus').textContent = ''; $('simpanStatus').className = '';
-    hitung(); gambarTab();
+    hitung(); gambarTab(); jadwalKunci();
   }
 
   function hitung() {
@@ -140,7 +180,25 @@
     if (sisa) { var area = aktif; setTimeout(function () { if (aktif === area) tampilFoto(); }, sisa + 100); }
   }
 
-  $('chkLibur').onchange = function () { data[aktif].libur = this.checked; $('daftar').classList.toggle('mati', this.checked); berubah(); };
+  // Libur (X): bebas dicentang/dilepas kapan saja (tanpa aturan 10 detik).
+  // Saat Libur dicentang, semua ceklis pekerjaan di-reset (dikosongkan, termasuk yang terkunci).
+  $('chkLibur').onchange = function () {
+    var d = data[aktif], box = this;
+    if (box.checked) {
+      var adaCeklis = d.tugas.some(function (v) { return v === 'V'; });
+      if (adaCeklis && !confirm('Tandai Libur? Semua ceklis pekerjaan akan dihapus.')) { box.checked = false; return; }
+      d.libur = true; d.tugas = []; d.waktu = [];
+      $('daftar').querySelectorAll('input').forEach(function (c) { c.checked = false; c.disabled = false; c.closest('.task').classList.remove('terkunci'); });
+    } else {
+      d.libur = false;
+    }
+    $('daftar').classList.toggle('mati', d.libur);
+    berubah(); jadwalKunci();
+  };
+  // ketuk ceklis yang terkunci -> beri tahu
+  $('daftar').onclick = function (e) {
+    if (e.target.closest('.task.terkunci')) R.toast('🔒 Ceklis sudah terkunci');
+  };
   $('fotoList').onclick = function (e) {
     var b = e.target.closest('.hapusfoto'); if (!b) return;
     var area = aktif, d = data[area], url = b.dataset.u;
@@ -176,8 +234,13 @@
 
   function simpan(area, extra) {
     var d = data[area], tugas = R.tugasArea(area), nama = $('selNama').value, tgl = $('selTanggal').value;
+    var sekarang = Date.now();
+    var umur = [];   // umur tiap ceklis (ms) -> server mencatat waktu centang yang akurat
+    for (var i = 0; i < tugas.length; i++) umur.push(d.tugas[i] === 'V' && d.waktu[i] ? sekarang - d.waktu[i] : -1);
     var body = {
-      action: 'simpan', area: area, tanggal: tgl, libur: d.libur, tugas: d.tugas.slice(0, tugas.length),
+      action: 'simpan', area: area, tanggal: tgl, libur: d.libur,
+      tugas: tugas.map(function (_, i) { return d.tugas[i] === 'V' ? 'V' : ''; }),
+      umur: umur,
       parafPetugas: !d.libur && d.tugas.some(function (v) { return v === 'V'; }),
       catatan: d.catatan, oleh: nama
     };
@@ -185,6 +248,12 @@
     $('simpanStatus').className = ''; $('simpanStatus').textContent = 'Menyimpan...';
     var p = antrean.then(function () { return R.apiPost(body); }).then(function (r) {
       if (!r.ok) throw new Error(r.error);
+      // server menolak pembatalan ceklis yang sudah terkunci -> kembalikan centangnya
+      if (r.ditolak && r.ditolak.length && data[area] && !data[area].libur) {
+        r.ditolak.forEach(function (i) { data[area].tugas[i] = 'V'; data[area].waktu[i] = 0; });
+        R.toast('🔒 Ceklis sudah terkunci');
+        if (area === aktif) { bukaArea(area); }
+      }
       if (area === aktif) { $('simpanStatus').className = ''; $('simpanStatus').textContent = '✔ Tersimpan'; }
       return r;
     }).catch(function (err) {
