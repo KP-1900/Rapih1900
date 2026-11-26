@@ -12,11 +12,11 @@
   <style>
     /* input tanggal/bulan: saat diklik cukup garis tepi berwarna, bagian hari/bulan/tahun tidak diblok biru */
     input[type=date]:focus, input[type=month]:focus { outline: none; border-color: var(--aksen); box-shadow: 0 0 0 1px var(--aksen); }
-    input[type=date]::-webkit-datetime-edit-day-field:focus,
-    input[type=date]::-webkit-datetime-edit-month-field:focus,
-    input[type=date]::-webkit-datetime-edit-year-field:focus,
-    input[type=month]::-webkit-datetime-edit-month-field:focus,
-    input[type=month]::-webkit-datetime-edit-year-field:focus { background: transparent; color: inherit; outline: none; }
+    input[type=date]:focus::-webkit-datetime-edit-day-field,
+    input[type=date]:focus::-webkit-datetime-edit-month-field,
+    input[type=date]:focus::-webkit-datetime-edit-year-field,
+    input[type=month]:focus::-webkit-datetime-edit-month-field,
+    input[type=month]:focus::-webkit-datetime-edit-year-field { background-color: transparent !important; color: inherit !important; outline: none !important; }
   </style>
 </head>
 <body>
