@@ -9,6 +9,15 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="lapor.css">
+  <style>
+    /* input tanggal/bulan: saat diklik cukup garis tepi berwarna, bagian hari/bulan/tahun tidak diblok biru */
+    input[type=date]:focus, input[type=month]:focus { outline: none; border-color: var(--aksen); box-shadow: 0 0 0 1px var(--aksen); }
+    input[type=date]::-webkit-datetime-edit-day-field:focus,
+    input[type=date]::-webkit-datetime-edit-month-field:focus,
+    input[type=date]::-webkit-datetime-edit-year-field:focus,
+    input[type=month]::-webkit-datetime-edit-month-field:focus,
+    input[type=month]::-webkit-datetime-edit-year-field:focus { background: transparent; color: inherit; outline: none; }
+  </style>
 </head>
 <body>
   <header class="topbar">
